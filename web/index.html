@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>网络流量监控面板</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style>
+    :root{
+      --bg1:#070c16; --bg2:#0b1220;
+      --bgGlow1: rgba(78,161,255,.20);
+      --bgGlow2: rgba(124,92,255,.18);
+
+      --cardA: rgba(255,255,255,.03);
+      --cardB: rgba(255,255,255,.015);
+      --cardBorder: rgba(255,255,255,.08);
+
+      --text:#e6eefc; --muted:#9fb0cc;
+
+      --accent:#4ea1ff; --accent2:#7c5cff;
+      --good:#37d67a; --warn:#f5c542; --bad:#ff4d4f;
+
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:16px;
+
+      --preBg:#050914; --preText:#c9fbd7;
+      --imgBorder: rgba(255,255,255,.10);
+
+      --axis: rgba(255,255,255,.20);
+      --grid: rgba(255,255,255,.08);
+      --legend: #bcd0f5;
+      --tooltipBg: rgba(20,25,35,.92);
+      --tooltipBorder: rgba(255,255,255,.12);
+    }
+
+    [data-theme="light"]{
+      --bg1:#f7f9ff; --bg2:#eef3ff;
+      --bgGlow1: rgba(78,161,255,.18);
+      --bgGlow2: rgba(124,92,255,.14);
+
+      --cardA: rgba(255,255,255,.92);
+      --cardB: rgba(255,255,255,.80);
+      --cardBorder: rgba(20,30,55,.10);
+
+      --text:#111827; --muted:#52607a;
+
+      --accent:#1677ff; --accent2:#7c5cff;
+      --good:#16a34a; --warn:#d97706; --bad:#dc2626;
+
+      --shadow: 0 10px 26px rgba(17,24,39,.10);
+
+      --preBg:#0b1220; --preText:#c9fbd7;
+      --imgBorder: rgba(20,30,55,.12);
+
+      --axis: rgba(20,30,55,.22);
+      --grid: rgba(20,30,55,.10);
+      --legend: #2b3a55;
+      --tooltipBg: rgba(255,255,255,.96);
+      --tooltipBorder: rgba(20,30,55,.14);
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0; padding:24px;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 600px at 10% 0%, var(--bgGlow1), transparent 55%),
+        radial-gradient(900px 500px at 90% 10%, var(--bgGlow2), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+    }
+
+    .container{max-width:1100px;margin:0 auto}
+    .topbar{
+      display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;
+      margin-bottom:18px;
+    }
+    .title{display:flex;gap:12px;align-items:center;}
+    .logo{
+      width:44px;height:44px;border-radius:14px;
+      background: linear-gradient(135deg, rgba(78,161,255,.95), rgba(124,92,255,.95));
+      box-shadow: 0 12px 30px rgba(78,161,255,.20);
+      display:flex;align-items:center;justify-content:center;
+      font-weight:900;color:white;
+    }
+    h1{margin:0;font-size:20px;letter-spacing:.2px}
+    .subtitle{margin-top:4px;color:var(--muted);font-size:13px}
+
+    .status{
+      display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+      padding:10px 12px;border:1px solid var(--cardBorder);border-radius:14px;
+      background: rgba(255,255,255,.06);
+      box-shadow: 0 12px 26px rgba(0,0,0,.10);
+    }
+    [data-theme="light"] .status{background: rgba(255,255,255,.65);}
+
+    .pill{
+      display:flex;gap:8px;align-items:center;
+      padding:6px 10px;border-radius:999px;
+      background: rgba(255,255,255,.08);
+      border:1px solid var(--cardBorder);
+      font-size:12px;color:var(--muted);
+      white-space:nowrap;
+    }
+    .k{color:var(--text);font-weight:700}
+    .dot{width:8px;height:8px;border-radius:99px;background:var(--good);box-shadow:0 0 0 4px rgba(55,214,122,.12)}
+    .dot.warn{background:var(--warn);box-shadow:0 0 0 4px rgba(245,197,66,.16)}
+    .dot.bad{background:var(--bad);box-shadow:0 0 0 4px rgba(255,77,79,.16)}
+
+    .card{
+      background: linear-gradient(180deg, var(--cardA), var(--cardB));
+      border:1px solid var(--cardBorder);
+      border-radius:var(--radius);
+      box-shadow: var(--shadow);
+      padding:16px;
+      margin-bottom:16px;
+      overflow:hidden;
+    }
+    .cardhead{
+      display:flex;align-items:center;justify-content:space-between;
+      gap:12px;flex-wrap:wrap;margin-bottom:10px;
+    }
+    .cardhead h2{margin:0;font-size:15px}
+    .hint{color:var(--muted);font-size:12px;line-height:1.6;margin-top:8px}
+
+    .seg{
+      display:inline-flex;
+      border:1px solid var(--cardBorder);
+      background: rgba(255,255,255,.06);
+      border-radius:999px;
+      padding:4px;
+      gap:4px;
+    }
+    [data-theme="light"] .seg{ background: rgba(255,255,255,.75); }
+    .seg button{
+      border:0;background: transparent;color: var(--muted);
+      padding:8px 12px;border-radius:999px;cursor:pointer;font-size:12px;
+      transition: .15s ease; white-space:nowrap;
+    }
+    .seg button:hover{color:var(--text);background: rgba(255,255,255,.12)}
+    .seg button.active{
+      color:#ffffff;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 10px 22px rgba(78,161,255,.18);
+    }
+
+    select{
+      border:1px solid var(--cardBorder);
+      background: rgba(255,255,255,.08);
+      color: var(--text);
+      padding:8px 12px;
+      border-radius:999px;
+      font-size:12px;
+      outline:none;
+    }
+    [data-theme="light"] select{ background: rgba(255,255,255,.75); }
+    option{ color:#111; }
+
+    .linkbtn{
+      border:1px solid var(--cardBorder);
+      background: rgba(255,255,255,.08);
+      color: var(--text);
+      padding:8px 12px;
+      border-radius:999px;
+      font-size:12px;
+      cursor:pointer;
+    }
+    .linkbtn:hover{ background: rgba(255,255,255,.12); }
+
+    #chart{width:100%;height:440px;margin-top:8px}
+    .small{color:var(--muted);font-size:12px;margin-top:10px}
+
+    pre{
+      margin:0;
+      background: var(--preBg);
+      border:1px solid var(--cardBorder);
+      color: var(--preText);
+      padding:14px;
+      border-radius:14px;
+      overflow:auto;
+      font-size:12px;
+      line-height:1.55;
+      white-space:pre;
+    }
+
+    .png-item{margin-top:14px}
+    .png-title{margin:0 0 8px;font-size:13px;color:var(--text)}
+    .png-img{
+      display:block;
+      width:760px;
+      max-width:100%;
+      height:auto;
+      border-radius:14px;
+      border:1px solid var(--imgBorder);
+      box-shadow: 0 16px 35px rgba(0,0,0,.18);
+      background: rgba(255,255,255,.04);
+    }
+
+    .footer{text-align:center;color:var(--muted);font-size:12px;margin-top:14px;}
+
+    @media (max-width:520px){
+      body{padding:14px}
+      #chart{height:380px}
+    }
+
+    /* Modal */
+    .modalMask{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      z-index:9999;
+    }
+    .modal{
+      width:min(520px, 100%);
+      background: linear-gradient(180deg, var(--cardA), var(--cardB));
+      border:1px solid var(--cardBorder);
+      border-radius:16px;
+      box-shadow: var(--shadow);
+      padding:16px;
+    }
+    .modal h3{margin:0 0 12px 0;font-size:14px}
+    .field{margin:10px 0}
+    .field label{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}
+    .field input{
+      width:100%;
+      border:1px solid var(--cardBorder);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      outline:none;
+      font-size:13px;
+    }
+    [data-theme="light"] .field input{ background: rgba(255,255,255,.75); }
+    .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
+    .btn{
+      border:1px solid var(--cardBorder);
+      background: rgba(255,255,255,.08);
+      color: var(--text);
+      padding:8px 12px;
+      border-radius:999px;
+      font-size:12px;
+      cursor:pointer;
+    }
+    .btn.primary{
+      border:0;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color:#fff;
+      box-shadow: 0 10px 22px rgba(78,161,255,.18);
+    }
+    .btn:hover{ background: rgba(255,255,255,.12); }
+    .btn.primary:hover{ filter: brightness(1.05); }
+    .tiny{color:var(--muted);font-size:12px;line-height:1.6}
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+</head>
+
+<body>
+<div class="container">
+
+  <div class="topbar">
+    <div class="title">
+      <div class="logo">VN</div>
+      <div>
+        <h1>网络流量监控面板</h1>
+        <div class="subtitle">vnStat 数据 + 交互图表（滚轮缩放 / 平移）</div>
+      </div>
+    </div>
+
+    <div class="status">
+      <div class="pill">
+        <span id="statusDot" class="dot"></span>
+        <span>状态</span>
+        <span class="k" id="statusText">运行中</span>
+      </div>
+
+      <div class="pill">网卡：<span class="k" id="ifaceName">eth0</span></div>
+      <div class="pill">视图：<span class="k" id="viewName">流量</span></div>
+      <div class="pill">粒度：<span class="k" id="modeName">小时</span></div>
+      <div class="pill">更新时间：<span class="k" id="lastUpdate">-</span></div>
+
+      <!-- ✅ VPS/浏览器时间时区显示（新增但不破坏布局） -->
+      <div class="pill" title="来自服务器 server_time.json">VPS：<span class="k" id="serverClock">-</span></div>
+      <div class="pill" title="来自浏览器本地时间/时区">浏览器：<span class="k" id="browserClock">-</span></div>
+
+      <!-- ✅ 本月用量/额度/百分比（告警） -->
+      <div class="pill" id="quotaPill" title="从 vnstat.json 读取本月总量（rx+tx）计算">
+        本月：<span class="k" id="monthUsage">-</span>
+        <span style="opacity:.8">/</span>
+        <span class="k" id="monthQuota">-</span>
+        <span style="opacity:.8">（</span><span class="k" id="monthPct">-</span><span style="opacity:.8">）</span>
+      </div>
+
+      <button class="linkbtn" id="btnQuota">阈值设置</button>
+
+      <div class="pill">
+        主题：
+        <select id="themeSelect" title="主题切换">
+          <option value="auto">自动</option>
+          <option value="light">白天</option>
+          <option value="dark">夜间</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="cardhead">
+      <h2>📈 交互图表</h2>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <div class="seg" aria-label="view toggle">
+          <button id="btn_view_traffic" class="active">流量(总量)</button>
+          <button id="btn_view_rate">带宽(平均)</button>
+        </div>
+
+        <div class="seg" aria-label="mode toggle">
+          <button id="btn_5min">5分钟</button>
+          <button id="btn_hour" class="active">小时</button>
+          <button id="btn_day">天</button>
+          <button id="btn_month">月</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="hint">
+      带宽(平均)=每个时间桶内的流量 ÷ 时间桶长度（5分钟/小时/天/月），用于观察趋势（不是秒级实时）。
+    </div>
+
+    <div id="chart"></div>
+    <div class="small" id="chartUpdated">图表最后刷新：-</div>
+  </div>
+
+  <div class="card">
+    <div class="cardhead">
+      <h2>📄 当前统计摘要</h2>
+      <div class="pill">自动刷新：<span class="k">60 秒</span></div>
+    </div>
+    <pre id="summary">加载中...</pre>
+    <div class="small" id="updated">最后刷新：-</div>
+  </div>
+
+  <div class="card">
+    <div class="cardhead">
+      <h2>🖼 PNG 备用图</h2>
+      <div class="pill">用于对照（非交互）</div>
+    </div>
+
+    <div class="png-item">
+      <div class="png-title">小时</div>
+      <img id="img_hourly" class="png-img" src="hourly.png" alt="小时流量">
+    </div>
+
+    <div class="png-item">
+      <div class="png-title">每日</div>
+      <img id="img_daily" class="png-img" src="daily.png" alt="每日流量">
+    </div>
+
+    <div class="png-item">
+      <div class="png-title">每月</div>
+      <img id="img_monthly" class="png-img" src="monthly.png" alt="每月流量">
+    </div>
+  </div>
+
+  <div class="footer">数据来源：vnStat ｜ 建议后台 5 分钟更新 vnstat_5min.json / vnstat.json</div>
+</div>
+
+<!-- 阈值设置弹窗 -->
+<div class="modalMask" id="quotaMask">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>🚦 流量阈值告警（仅页面提示）</h3>
+
+    <div class="field">
+      <label>本月总额度（GB）</label>
+      <input id="q_quota_gb" type="number" min="1" step="1" />
+    </div>
+
+    <div class="field">
+      <label>告警阈值（%）</label>
+      <input id="q_alert_pct" type="number" min="1" max="100" step="1" />
+    </div>
+
+    <div class="field">
+      <label>危险阈值（%）</label>
+      <input id="q_danger_pct" type="number" min="1" max="100" step="1" />
+    </div>
+
+    <div class="tiny" id="quotaHint">
+      保存后：<b>黄灯=告警</b>，<b>红灯=危险</b>。设置由服务器 CGI 保存（不需要 token）。
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="btnQuotaCancel">取消</button>
+      <button class="btn primary" id="btnQuotaSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const IFACE_NAME = "eth0";
+  const THEME_KEY = "vnstat_theme_pref";
+
+  // CGI 入口（lighttpd 默认 /cgi-bin/）
+  const CGI_URL = "/cgi-bin/vnstat-web-config.cgi";
+
+  let view = 'traffic'; // traffic | rate
+  let mode = 'hour';    // fivemin | hour | day | month
+  let chart;
+
+  document.getElementById('ifaceName').textContent = IFACE_NAME;
+
+  function isDaytimeByBrowser(){
+    const h = new Date().getHours();
+    return h >= 7 && h < 19;
+  }
+  function applyTheme(mode){
+    let t = mode;
+    if (t === 'auto') t = isDaytimeByBrowser() ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+    if (chart) { chart.dispose(); chart=null; refreshChart(); }
+  }
+  function initTheme(){
+    const saved = localStorage.getItem(THEME_KEY) || 'auto';
+    const sel = document.getElementById('themeSelect');
+    sel.value = saved;
+    applyTheme(saved);
+    sel.addEventListener('change', () => {
+      localStorage.setItem(THEME_KEY, sel.value);
+      applyTheme(sel.value);
+    });
+  }
+
+  function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  function setStatus(level, text){
+    const dot = document.getElementById('statusDot');
+    dot.className = 'dot';
+    if(level === 'warn') dot.classList.add('warn');
+    if(level === 'bad') dot.classList.add('bad');
+    document.getElementById('statusText').textContent = text;
+  }
+
+  function setStatusText(){
+    document.getElementById('viewName').textContent = (view === 'traffic') ? "流量" : "带宽";
+    const map = {fivemin:"5分钟", hour:"小时", day:"天", month:"月"};
+    document.getElementById('modeName').textContent = map[mode] || mode;
+  }
+
+  function refreshImages() {
+    const t = Date.now();
+    document.getElementById('img_hourly').src  = 'hourly.png?_=' + t;
+    document.getElementById('img_daily').src   = 'daily.png?_=' + t;
+    document.getElementById('img_monthly').src = 'monthly.png?_=' + t;
+  }
+
+  function refreshSummary() {
+    fetch('summary.txt?_=' + Date.now())
+      .then(r => r.text())
+      .then(t => {
+        document.getElementById('summary').textContent = t;
+        document.getElementById('updated').textContent = '最后刷新：' + new Date().toLocaleString();
+        document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+      })
+      .catch(() => {
+        document.getElementById('summary').textContent = '读取 summary.txt 失败（请检查文件权限或路径）';
+      });
+  }
+
+  function formatBytes(v) {
+    const n = Number(v);
+    if (!isFinite(n)) return String(v);
+    const abs = Math.abs(n);
+    const units = ['B','KB','MB','GB','TB','PB'];
+    let u = 0;
+    let val = abs;
+    while (val >= 1024 && u < units.length - 1) { val /= 1024; u++; }
+    const out = (n < 0 ? -val : val);
+    return `${out.toFixed(u === 0 ? 0 : 2)} ${units[u]}`;
+  }
+
+  function formatBps(v) {
+    const n = Number(v);
+    if (!isFinite(n)) return String(v);
+    const abs = Math.abs(n);
+    const units = ['bps','Kbps','Mbps','Gbps','Tbps'];
+    let u = 0;
+    let val = abs;
+    while (val >= 1000 && u < units.length - 1) { val /= 1000; u++; }
+    const out = (n < 0 ? -val : val);
+    return `${out.toFixed(u === 0 ? 0 : 2)} ${units[u]}`;
+  }
+
+  function bucketSecondsFor(mode, label) {
+    if (mode === 'fivemin') return 5 * 60;
+    if (mode === 'hour') return 60 * 60;
+    if (mode === 'day') return 24 * 60 * 60;
+    if (mode === 'month') {
+      const parts = String(label).split('-');
+      const y = Number(parts[0] || 0);
+      const m = Number(parts[1] || 0);
+      if (y > 1970 && m >= 1 && m <= 12) {
+        const days = new Date(y, m, 0).getDate();
+        return days * 86400;
+      }
+      return 30 * 86400;
+    }
+    return 3600;
+  }
+
+  function renderChart(series, modeForBucket) {
+    if (!chart) chart = echarts.init(document.getElementById('chart'));
+
+    let yFormatter = formatBytes;
+    let tooltipFormatter = formatBytes;
+
+    let legend = ['下行(rx)','上行(tx)','总计'];
+    let s1 = series.rx, s2 = series.tx, s3 = series.total;
+    let yName = '';
+
+    if (view === 'rate') {
+      const rxBps = [], txBps = [], totalBps = [];
+      for (let i=0;i<series.labels.length;i++) {
+        const sec = bucketSecondsFor(modeForBucket, series.labels[i]);
+        const r = (Number(series.rx[i]) || 0) * 8 / sec;
+        const t = (Number(series.tx[i]) || 0) * 8 / sec;
+        rxBps.push(r); txBps.push(t); totalBps.push(r + t);
+      }
+      yFormatter = formatBps;
+      tooltipFormatter = formatBps;
+      legend = ['下行 平均速率','上行 平均速率','总计 平均速率'];
+      s1 = rxBps; s2 = txBps; s3 = totalBps;
+      yName = '平均带宽';
+    }
+
+    const axis = cssVar('--axis');
+    const grid = cssVar('--grid');
+    const legendColor = cssVar('--legend');
+    const tooltipBg = cssVar('--tooltipBg');
+    const tooltipBorder = cssVar('--tooltipBorder');
+
+    chart.setOption({
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'axis',
+        confine: true,
+        valueFormatter: (v) => tooltipFormatter(v),
+        backgroundColor: tooltipBg,
+        borderColor: tooltipBorder,
+        borderWidth: 1,
+        textStyle: { color: cssVar('--text') },
+        extraCssText: 'border-radius:12px; box-shadow: 0 14px 30px rgba(0,0,0,.18);'
+      },
+      legend: { data: legend, textStyle: { color: legendColor } },
+      grid: { left: 18, right: 18, top: 58, bottom: 62, containLabel: true },
+      xAxis: {
+        type: 'category',
+        data: series.labels,
+        boundaryGap: false,
+        axisLine: { lineStyle: { color: axis } },
+        axisLabel: { color: cssVar('--muted') }
+      },
+      yAxis: {
+        type: 'value',
+        name: yName,
+        nameTextStyle: { color: cssVar('--muted') },
+        axisLine: { lineStyle: { color: axis } },
+        axisLabel: { color: cssVar('--muted'), formatter: (v) => yFormatter(v) },
+        splitLine: { lineStyle: { color: grid } }
+      },
+      dataZoom: [
+        { type: 'inside', xAxisIndex: 0, filterMode: 'none' },
+        {
+          type: 'slider', xAxisIndex: 0, height: 22, bottom: 18,
+          borderColor: cssVar('--cardBorder'),
+          fillerColor: 'rgba(78,161,255,.22)',
+          backgroundColor: 'rgba(255,255,255,.06)',
+          textStyle: { color: cssVar('--muted') }
+        }
+      ],
+      series: [
+        { name: legend[0], type: 'line', showSymbol: false, data: s1, smooth: true, lineStyle:{width:2} },
+        { name: legend[1], type: 'line', showSymbol: false, data: s2, smooth: true, lineStyle:{width:2} },
+        { name: legend[2], type: 'line', showSymbol: false, data: s3, smooth: true, lineStyle:{width:2, opacity:.85} }
+      ]
+    }, true);
+
+    document.getElementById('chartUpdated').textContent = '图表最后刷新：' + new Date().toLocaleString();
+    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+  }
+
+  function pickSeriesFromVnstatJson(vn, pickMode) {
+    const iface = (vn.interfaces && vn.interfaces[0]) ? vn.interfaces[0] : null;
+    if (!iface || !iface.traffic) return null;
+
+    let key = pickMode;
+    if (!iface.traffic[key]) {
+      if (pickMode === 'hour' && iface.traffic.hours) key = 'hours';
+      if (pickMode === 'day' && iface.traffic.days) key = 'days';
+      if (pickMode === 'month' && iface.traffic.months) key = 'months';
+    }
+    if (!iface.traffic[key]) return null;
+
+    const arr = iface.traffic[key];
+    const labels = [], rx = [], tx = [], total = [];
+
+    for (const item of arr) {
+      let label = '';
+      if (pickMode === 'hour') {
+        const d = item.date || {};
+        const tm = item.time || {};
+        const mm = String(d.month ?? '').padStart(2,'0');
+        const dd = String(d.day ?? '').padStart(2,'0');
+        const hh = String(tm.hour ?? '').padStart(2,'0');
+        label = `${mm}-${dd} ${hh}:00`;
+      } else if (pickMode === 'day') {
+        const d = item.date || {};
+        const yy = d.year ?? '';
+        const mm = String(d.month ?? '').padStart(2,'0');
+        const dd = String(d.day ?? '').padStart(2,'0');
+        label = `${yy}-${mm}-${dd}`;
+      } else {
+        const d = item.date || {};
+        const yy = d.year ?? '';
+        const mm = String(d.month ?? '').padStart(2,'0');
+        label = `${yy}-${mm}`;
+      }
+
+      const r = item.rx ?? item.rx_bytes ?? 0;
+      const t = item.tx ?? item.tx_bytes ?? 0;
+
+      labels.push(label);
+      rx.push(r);
+      tx.push(t);
+      total.push((Number(r) || 0) + (Number(t) || 0));
+    }
+    return { labels, rx, tx, total };
+  }
+
+  function pickSeriesFrom5MinJson(vn) {
+    const iface = (vn.interfaces && vn.interfaces[0]) ? vn.interfaces[0] : null;
+    if (!iface || !iface.traffic) return null;
+
+    // ✅ vnstat 2.10: traffic.fiveminute
+    const arr = iface.traffic.fiveminute || iface.traffic.fivemin || iface.traffic.fiveminutes || iface.traffic.f || null;
+    if (!arr) return null;
+
+    const labels = [], rx = [], tx = [], total = [];
+
+    for (const item of arr) {
+      const d = item.date || {};
+      const t = item.time || {};
+      const mm = String(d.month ?? '').padStart(2,'0');
+      const dd = String(d.day ?? '').padStart(2,'0');
+      const hh = String(t.hour ?? '').padStart(2,'0');
+      const mi = String(t.minute ?? '').padStart(2,'0');
+      labels.push(`${mm}-${dd} ${hh}:${mi}`);
+
+      const r = item.rx ?? item.rx_bytes ?? 0;
+      const x = item.tx ?? item.tx_bytes ?? 0;
+      rx.push(r);
+      tx.push(x);
+      total.push((Number(r) || 0) + (Number(x) || 0));
+    }
+    return { labels, rx, tx, total };
+  }
+
+  function showChartError(msg){
+    document.getElementById('chart').innerHTML =
+      '<div style="padding:12px;color:#ff6b6b;font-size:13px;line-height:1.6">读取失败：' + msg + '</div>';
+  }
+
+  function refreshChart() {
+    if (mode === 'fivemin') {
+      fetch('vnstat_5min.json?_=' + Date.now())
+        .then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(vn => {
+          const series = pickSeriesFrom5MinJson(vn);
+          if (!series) throw new Error('vnstat_5min.json 中找不到 5 分钟字段（traffic.fiveminute）');
+          renderChart(series, 'fivemin');
+        })
+        .catch(err => showChartError(err.message || err));
+      return;
+    }
+
+    fetch('vnstat.json?_=' + Date.now())
+      .then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(vn => {
+        const series = pickSeriesFromVnstatJson(vn, mode);
+        if (!series) throw new Error('vnstat.json 中找不到字段：traffic.' + mode);
+        renderChart(series, mode);
+      })
+      .catch(err => showChartError(err.message || err));
+  }
+
+  function setMode(m) {
+    mode = m;
+    document.getElementById('btn_5min').classList.toggle('active', m === 'fivemin');
+    document.getElementById('btn_hour').classList.toggle('active', m === 'hour');
+    document.getElementById('btn_day').classList.toggle('active', m === 'day');
+    document.getElementById('btn_month').classList.toggle('active', m === 'month');
+    setStatusText();
+    refreshChart();
+  }
+  function setView(v) {
+    view = v;
+    document.getElementById('btn_view_traffic').classList.toggle('active', v === 'traffic');
+    document.getElementById('btn_view_rate').classList.toggle('active', v === 'rate');
+    setStatusText();
+    refreshChart();
+  }
+
+  document.getElementById('btn_5min').onclick = () => setMode('fivemin');
+  document.getElementById('btn_hour').onclick = () => setMode('hour');
+  document.getElementById('btn_day').onclick = () => setMode('day');
+  document.getElementById('btn_month').onclick = () => setMode('month');
+
+  document.getElementById('btn_view_traffic').onclick = () => setView('traffic');
+  document.getElementById('btn_view_rate').onclick = () => setView('rate');
+
+  // ===== VPS/浏览器 时区时间 =====
+  function refreshClocks(){
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
+    document.getElementById('browserClock').textContent =
+      new Date().toLocaleString() + ' ' + tz;
+
+    fetch('server_time.json?_=' + Date.now())
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if(!j) return;
+        // 只显示精简一点，避免太长
+        const s = `${j.server_time_iso} ${j.server_tz} (${j.server_utc_offset})`;
+        document.getElementById('serverClock').textContent = s;
+      })
+      .catch(()=>{});
+  }
+
+  // ===== CGI 阈值设置 =====
+  function bytesToGB(bytes){ return (Number(bytes)||0) / 1024 / 1024 / 1024; }
+
+  function getMonthTotalBytes(vn){
+    const iface = (vn.interfaces && vn.interfaces[0]) ? vn.interfaces[0] : null;
+    if(!iface || !iface.traffic) return null;
+
+    const monthArr = iface.traffic.month || iface.traffic.months || null;
+    if(Array.isArray(monthArr) && monthArr.length){
+      const sorted = [...monthArr].sort((a,b)=>{
+        const ay=(a.date?.year||0), am=(a.date?.month||0);
+        const by=(b.date?.year||0), bm=(b.date?.month||0);
+        return (ay*100+am) - (by*100+bm);
+      });
+      const last = sorted[sorted.length-1];
+      const rx = last.rx ?? last.rx_bytes ?? 0;
+      const tx = last.tx ?? last.tx_bytes ?? 0;
+      return (Number(rx)||0) + (Number(tx)||0);
+    }
+    return null;
+  }
+
+  async function cgiGetQuota(){
+    const r = await fetch(CGI_URL + '?_=' + Date.now(), { cache: 'no-store' });
+    if(!r.ok) throw new Error('CGI GET HTTP ' + r.status);
+    return await r.json(); // {quota_gb, alert_pct, danger_pct}
+  }
+
+  async function cgiSaveQuota(quota_gb, alert_pct, danger_pct){
+    const body = new URLSearchParams();
+    body.set('quota_gb', String(quota_gb));
+    body.set('alert_pct', String(alert_pct));
+    body.set('danger_pct', String(danger_pct));
+
+    const r = await fetch(CGI_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString()
+    });
+    if(!r.ok) throw new Error('CGI POST HTTP ' + r.status);
+    const j = await r.json();
+    if(!j || j.ok !== true) throw new Error('CGI bad response');
+    return true;
+  }
+
+  async function refreshQuotaAlarm(){
+    let settings;
+    try{
+      settings = await cgiGetQuota();
+    }catch(e){
+      // CGI 不通就不要乱红
+      document.getElementById('monthQuota').textContent = '-';
+      document.getElementById('monthUsage').textContent = 'CGI失败';
+      document.getElementById('monthPct').textContent = '-';
+      return;
+    }
+
+    const quotaGb = Number(settings.quota_gb)||1024;
+    const alertPct = Number(settings.alert_pct)||90;
+    const dangerPct = Number(settings.danger_pct)||100;
+
+    document.getElementById('monthQuota').textContent = quotaGb + 'GB';
+
+    try{
+      const r = await fetch('vnstat.json?_=' + Date.now());
+      if(!r.ok) throw new Error('vnstat.json HTTP ' + r.status);
+      const vn = await r.json();
+
+      const totalBytes = getMonthTotalBytes(vn);
+      if(totalBytes == null){
+        document.getElementById('monthUsage').textContent = '无本月数据';
+        document.getElementById('monthPct').textContent = '-';
+        setStatus('ok', '运行中');
+        return;
+      }
+
+      const usedGB = bytesToGB(totalBytes);
+      const pct = (usedGB / quotaGb) * 100;
+
+      document.getElementById('monthUsage').textContent = usedGB.toFixed(2) + 'GB';
+      document.getElementById('monthPct').textContent = isFinite(pct) ? pct.toFixed(1) + '%' : '-';
+
+      if (isFinite(pct) && pct >= dangerPct){
+        setStatus('bad', '危险：流量接近/超过额度');
+      } else if (isFinite(pct) && pct >= alertPct){
+        setStatus('warn', '告警：流量接近额度');
+      } else {
+        setStatus('ok', '运行中');
+      }
+
+      document.getElementById('quotaPill').title =
+        `已用 ${usedGB.toFixed(2)}GB / ${quotaGb}GB（${pct.toFixed(1)}%） 告警>=${alertPct}% 危险>=${dangerPct}%`;
+
+    }catch(e){
+      document.getElementById('monthUsage').textContent = '读取失败';
+      document.getElementById('monthPct').textContent = '-';
+    }
+  }
+
+  // 弹窗
+  function openQuotaModal(){
+    document.getElementById('quotaHint').textContent = '读取服务器设置中...';
+    document.getElementById('quotaMask').style.display = 'flex';
+
+    cgiGetQuota().then(s=>{
+      document.getElementById('q_quota_gb').value = Number(s.quota_gb)||1024;
+      document.getElementById('q_alert_pct').value = Number(s.alert_pct)||90;
+      document.getElementById('q_danger_pct').value = Number(s.danger_pct)||100;
+      document.getElementById('quotaHint').innerHTML =
+        '保存后：<b>黄灯=告警</b>，<b>红灯=危险</b>。设置由服务器 CGI 保存（不需要 token）。';
+    }).catch(()=>{
+      document.getElementById('quotaHint').textContent =
+        '读取失败：CGI 不可用（检查 lighttpd cgi 模块和 /usr/lib/cgi-bin 权限）';
+    });
+  }
+  function closeQuotaModal(){ document.getElementById('quotaMask').style.display = 'none'; }
+
+  document.getElementById('btnQuota').onclick = openQuotaModal;
+  document.getElementById('btnQuotaCancel').onclick = closeQuotaModal;
+  document.getElementById('quotaMask').onclick = (e) => {
+    if (e.target === document.getElementById('quotaMask')) closeQuotaModal();
+  };
+
+  document.getElementById('btnQuotaSave').onclick = async () => {
+    const quota_gb = Math.max(1, Number(document.getElementById('q_quota_gb').value || 0));
+    const alert_pct = Math.min(100, Math.max(1, Number(document.getElementById('q_alert_pct').value || 0)));
+    const danger_pct0 = Math.min(100, Math.max(1, Number(document.getElementById('q_danger_pct').value || 0)));
+    const danger_pct = Math.max(danger_pct0, alert_pct);
+
+    try{
+      await cgiSaveQuota(quota_gb, alert_pct, danger_pct);
+      closeQuotaModal();
+      await refreshQuotaAlarm();
+    }catch(e){
+      document.getElementById('quotaHint').textContent =
+        '保存失败：' + (e.message || e);
+    }
+  };
+
+  function tick(){
+    refreshImages();
+    refreshSummary();
+    refreshChart();
+    refreshClocks();
+    refreshQuotaAlarm();
+  }
+
+  // 初始化
+  initTheme();
+  setStatusText();
+  tick();
+
+  setInterval(tick, 60 * 1000);
+  window.addEventListener('resize', () => { if (chart) chart.resize(); });
+  setInterval(() => {
+    const pref = localStorage.getItem(THEME_KEY) || 'auto';
+    if (pref === 'auto') applyTheme('auto');
+  }, 5 * 60 * 1000);
+</script>
+</body>
+</html>
