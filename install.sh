@@ -28,7 +28,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get install -y --no-install-recommends curl ca-certificates vnstat lighttpd
 
-# ====== 固定默认仓库（可选覆盖）======
+# 固定默认仓库（可用环境变量覆盖）
 REPO="${GITHUB_REPO:-byby5555/vnstat-web-panel-sm}"
 BRANCH="${GITHUB_BRANCH:-main}"
 RAW_BASE="https://raw.githubusercontent.com/${REPO}/${BRANCH}"
@@ -47,68 +47,42 @@ download_required() {
   [[ -n "$mode" ]] && chmod "$mode" "$out" || true
 }
 
-download_optional_quiet() {
+download_optional() {
   local url="$1" out="$2" mode="${3:-}"
   if curl -fsSL "$url" -o "$out" >/dev/null 2>&1; then
     [[ -n "$mode" ]] && chmod "$mode" "$out" || true
-    return 0
   fi
-  return 1
-}
-
-download_optional_with_legacy() {
-  local url1="$1" url2="$2" out="$3" mode="${4:-}"
-  if download_optional_quiet "$url1" "$out" "$mode"; then
-    ok "下载：$url1"
-    return 0
-  fi
-  if download_optional_quiet "$url2" "$out" "$mode"; then
-    ok "下载：$url2"
-    return 0
-  fi
-  log "可选文件不存在（已跳过）：$url1 或 $url2"
   return 0
 }
 
-mkdir -p web cgi-bin scripts systemd lighttpd config
+mkdir -p web cgi-bin scripts systemd
 
-# ---- required (你的仓库必须有这些) ----
+# 必需文件（必须存在）
 download_required "$RAW_BASE/web/index.html" "web/index.html" 644
 download_required "$RAW_BASE/cgi-bin/vnstat-web-config.cgi" "cgi-bin/vnstat-web-config.cgi" 755
 download_required "$RAW_BASE/scripts/vnstat-web-update.sh" "scripts/vnstat-web-update.sh" 755
 
-# vnstat-web.conf 用来给人看/参考也行，但我们会写入一个“不会重复 server.port”的最终配置
-download_required "$RAW_BASE/lighttpd/vnstat-web.conf" "lighttpd/vnstat-web.conf" 644
+# 可选文件（不存在就跳过，不报错）
+download_optional "$RAW_BASE/scripts/vnstat-quota-check.sh" "scripts/vnstat-quota-check.sh" 755
+download_optional "$RAW_BASE/systemd/vnstat-web-update.service" "systemd/vnstat-web-update.service" 644
+download_optional "$RAW_BASE/systemd/vnstat-web-update.timer"   "systemd/vnstat-web-update.timer" 644
+download_optional "$RAW_BASE/systemd/vnstat-quota-check.service" "systemd/vnstat-quota-check.service" 644
+download_optional "$RAW_BASE/systemd/vnstat-quota-check.timer"   "systemd/vnstat-quota-check.timer" 644
 
-# ---- optional ----
-download_optional_quiet "$RAW_BASE/scripts/vnstat-quota-check.sh" "scripts/vnstat-quota-check.sh" 755 || true
-download_optional_quiet "$RAW_BASE/config/vnstat-web.conf.example" "config/vnstat-web.conf.example" 644 || true
-
-download_optional_quiet "$RAW_BASE/systemd/vnstat-web-update.service" "systemd/vnstat-web-update.service" 644 || true
-download_optional_quiet "$RAW_BASE/systemd/vnstat-web-update.timer"   "systemd/vnstat-web-update.timer" 644 || true
-download_optional_quiet "$RAW_BASE/systemd/vnstat-quota-check.service" "systemd/vnstat-quota-check.service" 644 || true
-download_optional_quiet "$RAW_BASE/systemd/vnstat-quota-check.timer"   "systemd/vnstat-quota-check.timer" 644 || true
-
-# 你文件在 legacy 下面：自动兼容
-download_optional_with_legacy \
-  "$RAW_BASE/lighttpd/10-cgi-vnstat.conf" \
-  "$RAW_BASE/lighttpd/legacy/10-cgi-vnstat.conf" \
-  "lighttpd/10-cgi-vnstat.conf" 644
-
-# ---- install web ----
+# 安装 web
 rm -rf /var/www/vnstat-web
 mkdir -p /var/www/vnstat-web
 cp -a web/. /var/www/vnstat-web/
 
-# ---- install cgi ----
+# 安装 CGI
 install -m 755 cgi-bin/vnstat-web-config.cgi /usr/lib/cgi-bin/vnstat-web-config.cgi
 
-# ---- install scripts ----
+# 安装脚本
 mkdir -p /usr/local/bin
 install -m 755 scripts/vnstat-web-update.sh /usr/local/bin/vnstat-web-update.sh
 [[ -f scripts/vnstat-quota-check.sh ]] && install -m 755 scripts/vnstat-quota-check.sh /usr/local/bin/vnstat-quota-check.sh || true
 
-# ---- systemd units (optional) ----
+# 安装 systemd（可选）
 if compgen -G "systemd/*.service" >/dev/null || compgen -G "systemd/*.timer" >/dev/null; then
   cp -a systemd/. /etc/systemd/system/ || true
   systemctl daemon-reload || true
@@ -118,41 +92,33 @@ if compgen -G "systemd/*.service" >/dev/null || compgen -G "systemd/*.timer" >/d
   done
 fi
 
-# ---- lighttpd mods ----
+# 关键：只启用 Debian 自带的 CGI 模块配置（10-cgi.conf）
 lighty-enable-mod cgi >/dev/null 2>&1 || true
 lighty-disable-mod debian-doc >/dev/null 2>&1 || true
 
-# ---- lighttpd conf (关键：不要重复 server.port，用 socket) ----
+# 关键：我们自己的 conf 不再写 cgi.assign（避免和 10-cgi.conf 冲突）
 CONF_AVAIL="/etc/lighttpd/conf-available/99-vnstat-web.conf"
 CONF_ENAB="/etc/lighttpd/conf-enabled/99-vnstat-web.conf"
 
 cat >"$CONF_AVAIL" <<EOF
-# vnstat web panel on separate socket (safe include, no duplicate server.port)
+# vnstat web panel (safe): no server.port, no cgi.assign duplication
 \$SERVER["socket"] == ":${PORT}" {
   server.document-root = "/var/www/vnstat-web"
   index-file.names = ( "index.html" )
 
+  # cgi handler is provided by Debian's /etc/lighttpd/conf-enabled/10-cgi.conf
   alias.url += ( "/cgi-bin/" => "/usr/lib/cgi-bin/" )
-
-  \$HTTP["url"] =~ "^/cgi-bin/" {
-    cgi.assign = ( ".cgi" => "" )
-  }
 }
 EOF
 
+# 防 CRLF
 sed -i 's/\r$//' "$CONF_AVAIL"
 ln -sf ../conf-available/99-vnstat-web.conf "$CONF_ENAB"
 
-# optional extra cgi conf
-if [[ -f "lighttpd/10-cgi-vnstat.conf" ]]; then
-  install -m 644 "lighttpd/10-cgi-vnstat.conf" /etc/lighttpd/conf-available/10-cgi-vnstat.conf
-  sed -i 's/\r$//' /etc/lighttpd/conf-available/10-cgi-vnstat.conf
-  ln -sf ../conf-available/10-cgi-vnstat.conf /etc/lighttpd/conf-enabled/10-cgi-vnstat.conf
-fi
-
-# validate
+# 验证配置
 lighttpd -tt -f /etc/lighttpd/lighttpd.conf || die "lighttpd 配置检测失败：journalctl -u lighttpd -n 120 --no-pager"
 
+# 重启服务
 systemctl enable --now vnstat >/dev/null 2>&1 || true
 systemctl restart vnstat >/dev/null 2>&1 || true
 systemctl enable --now lighttpd >/dev/null 2>&1 || true
