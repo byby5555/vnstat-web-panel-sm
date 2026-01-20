@@ -1,209 +1,279 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# ===== vnstat-web-panel 一键安装（Debian/Ubuntu）=====
-# 用法：
-#   sudo bash <(curl -fsSL https://raw.githubusercontent.com/byby5555/vnstat-web-panel/main/install.sh)
-#
-# 可选环境变量：
-#   PORT=8888
-#   IFACE=eth0
-#   WEB_PATH=/var/www/html/vnstat
-#   REPO_OWNER=byby5555
-#   REPO_NAME=vnstat-web-panel
-#   REPO_BRANCH=main
+# =========================
+# vnstat-web-panel install
+# =========================
 
-CONFIG_FILE="/etc/vnstat-web.conf"
-
-REPO_OWNER_DEFAULT="byby5555"
-REPO_NAME_DEFAULT="vnstat-web-panel"
-REPO_BRANCH_DEFAULT="main"
+# ---------- helpers ----------
+log() { echo -e "[*] $*"; }
+ok()  { echo -e "✅ $*"; }
+err() { echo -e "❌ $*" >&2; }
+die() { err "$*"; exit 1; }
 
 need_root() {
-  [[ "${EUID:-$(id -u)}" -eq 0 ]] || { echo "请用 root 执行"; exit 1; }
+  if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+    die "请使用 root 运行（sudo bash install.sh 或 sudo -i 后运行）"
+  fi
 }
 
-is_debian() { [[ -f /etc/debian_version ]]; }
+command_exists() { command -v "$1" >/dev/null 2>&1; }
 
-default_iface() {
-  local i
-  i="$(ip route 2>/dev/null | awk '/default/ {print $5; exit}')"
-  [[ -n "${i:-}" ]] && echo "$i" || echo "eth0"
+# Safe cleanup with set -u
+TMP_DIR=""
+cleanup() {
+  if [[ -n "${TMP_DIR:-}" && -d "${TMP_DIR:-}" ]]; then
+    rm -rf "${TMP_DIR:-}" || true
+  fi
 }
+trap cleanup EXIT
 
-raw_url() {
-  local path="$1"
-  local owner="${REPO_OWNER:-$REPO_OWNER_DEFAULT}"
-  local name="${REPO_NAME:-$REPO_NAME_DEFAULT}"
-  local br="${REPO_BRANCH:-$REPO_BRANCH_DEFAULT}"
-  echo "https://raw.githubusercontent.com/${owner}/${name}/${br}/${path}"
+# ---------- detect repo / raw base ----------
+# Priority:
+# 1) From environment GITHUB_RAW_BASE
+# 2) From env GITHUB_REPO + GITHUB_BRANCH
+# 3) From installer URL if passed as INSTALL_SH_URL
+detect_raw_base() {
+  if [[ -n "${GITHUB_RAW_BASE:-}" ]]; then
+    echo "${GITHUB_RAW_BASE%/}"
+    return
+  fi
+
+  if [[ -n "${GITHUB_REPO:-}" ]]; then
+    local branch="${GITHUB_BRANCH:-main}"
+    echo "https://raw.githubusercontent.com/${GITHUB_REPO}/${branch}"
+    return
+  fi
+
+  # If you run like: INSTALL_SH_URL="https://raw.githubusercontent.com/xxx/yyy/main/install.sh" bash install.sh
+  if [[ -n "${INSTALL_SH_URL:-}" ]]; then
+    # extract https://raw.githubusercontent.com/<owner>/<repo>/<branch>
+    # shellcheck disable=SC2001
+    echo "${INSTALL_SH_URL%/install.sh}"
+    return
+  fi
+
+  # Fallback (keeps compatibility but avoid 404 by telling user how to override)
+  echo ""
 }
 
 download() {
-  local path="$1" out="$2"
-  local url; url="$(raw_url "$path")"
-  echo "下载：$url"
-  curl -fsSL "$url" -o "$out" || { echo "❌ 下载失败：$url"; exit 1; }
+  local url="$1"
+  local out="$2"
+  local mode="${3:-}"
+
+  if ! curl -fsSL "$url" -o "$out"; then
+    err "下载失败：$url"
+    err "你可以这样指定仓库后重试："
+    err "  GITHUB_REPO=byby5555/vnstat-web-panel-sm GITHUB_BRANCH=main bash <(curl -fsSL https://raw.githubusercontent.com/byby5555/vnstat-web-panel-sm/main/install.sh)"
+    return 1
+  fi
+  [[ -n "$mode" ]] && chmod "$mode" "$out" || true
+  return 0
 }
 
-ensure_lighttpd_port_once() {
+# ---------- settings ----------
+DEFAULT_PORT="8888"
+
+prompt_port() {
+  local p
+  read -r -p "请输入面板端口 [${DEFAULT_PORT}]：" p || true
+  p="${p:-$DEFAULT_PORT}"
+  [[ "$p" =~ ^[0-9]{1,5}$ ]] || die "端口必须是数字"
+  (( p >= 1 && p <= 65535 )) || die "端口范围必须在 1-65535"
+  echo "$p"
+}
+
+# ---------- install deps ----------
+apt_install() {
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -y
+  apt-get install -y --no-install-recommends \
+    curl ca-certificates \
+    vnstat \
+    lighttpd
+}
+
+# ---------- lighttpd configure ----------
+ensure_lighttpd_cgi() {
+  # enable cgi module
+  if command_exists lighty-enable-mod; then
+    lighty-enable-mod cgi >/dev/null 2>&1 || true
+    # debian-doc module can cause weird cgi.assign behavior in some distros; disable if exists
+    lighty-disable-mod debian-doc >/dev/null 2>&1 || true
+  fi
+
+  # ensure default cgi conf available is sane (do NOT overwrite conf-enabled symlinks)
+  local cgi_avail="/etc/lighttpd/conf-available/10-cgi.conf"
+  if [[ -f "$cgi_avail" ]]; then
+    # Keep existing, but we can ensure it has cgi.module loaded by enabling mod above.
+    :
+  fi
+}
+
+install_lighttpd_vhost() {
   local port="$1"
-  # 只在 /etc/lighttpd/lighttpd.conf 设置端口，避免“重复 server.port”
-  if grep -qE '^[[:space:]]*server\.port[[:space:]]*=' /etc/lighttpd/lighttpd.conf; then
-    sed -i "s/^[[:space:]]*server\.port[[:space:]]*=.*/server.port = ${port}/" /etc/lighttpd/lighttpd.conf
+  local src="$2" # lighttpd/vnstat-web.conf from repo
+  local dst="/etc/lighttpd/conf-available/99-vnstat-web.conf"
+  install -m 644 "$src" "$dst"
+
+  # Replace port line if present; else append
+  if grep -qE '^\s*server\.port\s*=' "$dst"; then
+    sed -i "s/^\s*server\.port\s*=.*/server.port = ${port}/" "$dst"
   else
-    echo "server.port = ${port}" >> /etc/lighttpd/lighttpd.conf
+    echo "server.port = ${port}" >> "$dst"
   fi
 
-  # 把 conf-enabled/ 里的 server.port 都注释掉，防止重复
-  sed -i 's/^[[:space:]]*server\.port[[:space:]]*=/# server.port =/g' /etc/lighttpd/conf-enabled/*.conf 2>/dev/null || true
-}
+  if command_exists lighty-enable-mod; then
+    lighty-enable-mod vnstat-web >/dev/null 2>&1 || true
+  fi
 
-setup_lighttpd_alias_only() {
-  local web_path="$1"
-
-  # 我们的模块只负责 alias，不写 port、不写 cgi
-  cat >/etc/lighttpd/conf-available/vnstat-web-panel.conf <<EOF
-# vnstat-web-panel (alias only)
-alias.url += ( "/vnstat/" => "${web_path}/" )
-EOF
-
-  lighty-enable-mod alias >/dev/null 2>&1 || true
-  lighty-enable-mod vnstat-web-panel >/dev/null 2>&1 || true
-
-  # 清掉可能导致“Duplicate array-key '/vnstat/'”的旧 alias
-  # 做法：只保留 vnstat-web-panel.conf 这一处的 /vnstat/
-  for f in /etc/lighttpd/conf-enabled/*.conf; do
-    [[ "$f" == "/etc/lighttpd/conf-enabled/vnstat-web-panel.conf" ]] && continue
-    sed -i 's/.*alias\.url.*"\/vnstat\/".*/# (disabled duplicate) &/g' "$f" 2>/dev/null || true
-  done
-}
-
-setup_lighttpd_cgi_safe() {
-  # 启用系统 cgi 模块（Debian 默认会通过 10-cgi.conf 提供 /cgi-bin/ 和 cgi.assign）
-  lighty-enable-mod cgi >/dev/null 2>&1 || true
-
-  # 禁用 debian-doc（里面常见 cgi.assign = ( "" => "" ) 会导致 lighttpd 解析异常/安全风险）
-  lighty-disable-mod debian-doc >/dev/null 2>&1 || true
-  rm -f /etc/lighttpd/conf-enabled/90-debian-doc.conf 2>/dev/null || true
-
-  # 把系统 10-cgi.conf 修成“只允许 .cgi”，并确保 /cgi-bin/ 指向 /usr/lib/cgi-bin/
-  # 注意：不要直接覆盖 conf-enabled 里的文件（通常是软链），否则会影响 lighty-enable-mod 管理。
-  local CGI_AVAIL="/etc/lighttpd/conf-available/10-cgi.conf"
-  if [[ -f "$CGI_AVAIL" ]]; then
-    # 如果存在 cgi.assign 但不是 .cgi，则替换
-    if grep -qE '^[[:space:]]*cgi\.assign[[:space:]]*=' "$CGI_AVAIL"; then
-      sed -i 's/^[[:space:]]*cgi\.assign[[:space:]]*=.*/cgi.assign = ( ".cgi" => "" )/g' "$CGI_AVAIL" || true
-    else
-      # 没有的话追加
-      printf '\n$HTTP["url"] =~ "^/cgi-bin/" {\n  cgi.assign = ( ".cgi" => "" )\n}\n' >>"$CGI_AVAIL"
-    fi
-
-    # 确保有 /cgi-bin/ alias；如果文件里没有，就追加到同一个 url 匹配块里
-    if ! grep -qE 'alias\.url[[:space:]]*\+?=.*"/cgi-bin/"' "$CGI_AVAIL"; then
-      printf '\n$HTTP["url"] =~ "^/cgi-bin/" {\n  alias.url += ( "/cgi-bin/" => "/usr/lib/cgi-bin/" )\n}\n' >>"$CGI_AVAIL"
-    fi
-  else
-    # 极端情况：10-cgi.conf 不存在，就创建我们自己的模块
-    cat >/etc/lighttpd/conf-available/vnstat-web-panel-cgi.conf <<'EOF'
-server.modules += ( "mod_cgi" )
-$HTTP["url"] =~ "^/cgi-bin/" {
-  cgi.assign = ( ".cgi" => "" )
-  alias.url += ( "/cgi-bin/" => "/usr/lib/cgi-bin/" )
-}
-EOF
-    lighty-enable-mod vnstat-web-panel-cgi >/dev/null 2>&1 || true
+  # If lighty-enable-mod doesn't manage custom conf, create symlink ourselves
+  if [[ ! -e "/etc/lighttpd/conf-enabled/99-vnstat-web.conf" ]]; then
+    ln -sf "../conf-available/99-vnstat-web.conf" "/etc/lighttpd/conf-enabled/99-vnstat-web.conf"
   fi
 }
 
+# ---------- file install ----------
+install_web_files() {
+  local src_web="$1"  # repo web/
+  local dst_web="/var/www/vnstat-web"
+  rm -rf "$dst_web"
+  mkdir -p "$dst_web"
+  cp -a "${src_web}/." "$dst_web/"
+}
+
+install_cgi() {
+  local src_cgi="$1" # repo cgi-bin/vnstat-web-config.cgi
+  local dst="/usr/lib/cgi-bin/vnstat-web-config.cgi"
+  install -m 755 "$src_cgi" "$dst"
+}
+
+install_scripts() {
+  local src_scripts="$1" # repo scripts/
+  mkdir -p /usr/local/bin
+  if [[ -d "$src_scripts" ]]; then
+    for f in "$src_scripts"/*; do
+      [[ -f "$f" ]] || continue
+      install -m 755 "$f" "/usr/local/bin/$(basename "$f")"
+    done
+  fi
+}
+
+install_systemd_units() {
+  local src="$1" # repo systemd/
+  if [[ -d "$src" ]]; then
+    cp -a "$src/." /etc/systemd/system/
+    systemctl daemon-reload
+    # enable timers if exist (non-fatal)
+    for t in /etc/systemd/system/*.timer; do
+      [[ -f "$t" ]] || continue
+      systemctl enable --now "$(basename "$t")" >/dev/null 2>&1 || true
+    done
+  fi
+}
+
+write_config() {
+  # You之前日志显示写入 /etc/vnstat-web.conf，所以保持兼容
+  local cfg="/etc/vnstat-web.conf"
+  if [[ ! -f "$cfg" ]]; then
+    cat > "$cfg" <<'EOF'
+# vnstat-web-panel config
+# quota_gb: monthly quota in GB
+# alert_pct/danger_pct: percentage thresholds
+quota_gb=1024
+alert_pct=90
+danger_pct=100
+EOF
+  fi
+  ok "写入配置：$cfg"
+}
+
+restart_services() {
+  systemctl enable --now vnstat >/dev/null 2>&1 || true
+  systemctl restart vnstat >/dev/null 2>&1 || true
+  systemctl enable --now lighttpd >/dev/null 2>&1 || true
+  systemctl restart lighttpd
+}
+
+# ---------- main ----------
 main() {
   need_root
-  is_debian || { echo "仅支持 Debian/Ubuntu"; exit 1; }
 
-  local IFACE="${IFACE:-$(default_iface)}"
-  local WEB_PATH="${WEB_PATH:-/var/www/html/vnstat}"
+  local port
+  port="$(prompt_port)"
 
-  # 端口：支持交互输入（默认 8888），也支持通过环境变量 PORT 直接指定
-  local PORT_DEFAULT="8888"
-  local PORT_INPUT="${PORT:-}"
-  if [[ -z "${PORT_INPUT}" && -t 0 ]]; then
-    read -r -p "请输入面板端口 [${PORT_DEFAULT}]：" PORT_INPUT || true
+  write_config
+
+  apt_install
+  ensure_lighttpd_cgi
+
+  # Work directory
+  TMP_DIR="$(mktemp -d /tmp/vnstat-web-panel.XXXXXX)"
+  cd "$TMP_DIR"
+
+  # Determine raw base
+  local RAW_BASE
+  RAW_BASE="$(detect_raw_base)"
+  if [[ -z "$RAW_BASE" ]]; then
+    die "无法自动确定仓库 Raw 地址。请用环境变量指定：GITHUB_REPO=owner/repo （可选 GITHUB_BRANCH=main）"
   fi
-  PORT_INPUT="${PORT_INPUT:-$PORT_DEFAULT}"
-  if [[ ! "$PORT_INPUT" =~ ^[0-9]+$ ]] || (( PORT_INPUT < 1 || PORT_INPUT > 65535 )); then
-    echo "⚠️ 端口无效：${PORT_INPUT}，将使用默认端口 ${PORT_DEFAULT}"
-    PORT_INPUT="$PORT_DEFAULT"
+  log "使用资源地址：$RAW_BASE"
+
+  # Download required files to build a local tree
+  mkdir -p web/assets cgi-bin scripts systemd lighttpd config
+
+  # Minimal web (if you keep more assets, add more downloads or switch to tarball release later)
+  # If you already have full web directory in repo, you should prefer tarball mode. Here we fetch key files.
+  # Try to download manifest-like files; non-existing optional files won't break.
+  download "$RAW_BASE/web/index.html" "web/index.html" 644 || die "web/index.html 不存在或无法下载"
+  curl -fsSL "$RAW_BASE/web/assets/" >/dev/null 2>&1 || true
+
+  # CGI
+  download "$RAW_BASE/cgi-bin/vnstat-web-config.cgi" "cgi-bin/vnstat-web-config.cgi" 755 || die "cgi-bin/vnstat-web-config.cgi 不存在或无法下载"
+
+  # scripts (required: vnstat-web-update.sh; others optional)
+  download "$RAW_BASE/scripts/vnstat-web-update.sh" "scripts/vnstat-web-update.sh" 755 || die "scripts/vnstat-web-update.sh 不存在或无法下载"
+  # optional scripts
+  download "$RAW_BASE/scripts/vnstat-quota-check.sh" "scripts/vnstat-quota-check.sh" 755 || true
+
+  # lighttpd conf
+  download "$RAW_BASE/lighttpd/vnstat-web.conf" "lighttpd/vnstat-web.conf" 644 || die "lighttpd/vnstat-web.conf 不存在或无法下载"
+  download "$RAW_BASE/lighttpd/10-cgi-vnstat.conf" "lighttpd/10-cgi-vnstat.conf" 644 || true
+
+  # config example (optional)
+  download "$RAW_BASE/config/vnstat-web.conf.example" "config/vnstat-web.conf.example" 644 || true
+
+  # systemd units (optional)
+  download "$RAW_BASE/systemd/vnstat-web-update.service" "systemd/vnstat-web-update.service" 644 || true
+  download "$RAW_BASE/systemd/vnstat-web-update.timer"   "systemd/vnstat-web-update.timer" 644 || true
+  download "$RAW_BASE/systemd/vnstat-quota-check.service" "systemd/vnstat-quota-check.service" 644 || true
+  download "$RAW_BASE/systemd/vnstat-quota-check.timer"   "systemd/vnstat-quota-check.timer" 644 || true
+
+  # Install files into system
+  install_web_files "web"
+  install_cgi "cgi-bin/vnstat-web-config.cgi"
+  install_scripts "scripts"
+  install_systemd_units "systemd"
+  install_lighttpd_vhost "$port" "lighttpd/vnstat-web.conf"
+
+  # Validate lighttpd config before restart
+  if ! lighttpd -tt -f /etc/lighttpd/lighttpd.conf; then
+    err "lighttpd 配置检测失败。请查看：/var/log/lighttpd/error.log 或 journalctl -u lighttpd"
+    exit 1
   fi
-  local PORT="$PORT_INPUT"
 
-  # 写配置（给 update.sh 用）
-  cat >"$CONFIG_FILE" <<EOF
-IFACE=${IFACE}
-WEB_PATH=${WEB_PATH}
-PORT=${PORT}
-EOF
-  echo "写入配置：$CONFIG_FILE"
+  restart_services
 
-  apt-get update -y
-  apt-get install -y ca-certificates curl lighttpd vnstat vnstati >/dev/null
-
-  systemctl enable --now vnstat 2>/dev/null || true
-
-  mkdir -p "$WEB_PATH" /etc/vnstat-web
-  chown -R www-data:www-data "$WEB_PATH" /etc/vnstat-web
-  chmod 750 /etc/vnstat-web
-
-  # 阈值默认配置（CGI 写它）
-  if [[ ! -f /etc/vnstat-web/quota.json ]]; then
-    echo '{"quota_gb":1024,"alert_pct":90,"danger_pct":100}' > /etc/vnstat-web/quota.json
-  fi
-  chown www-data:www-data /etc/vnstat-web/quota.json
-  chmod 640 /etc/vnstat-web/quota.json
-
-  # 下载文件到临时目录
-  local TMP_DIR=""
-  TMP_DIR="$(mktemp -d /tmp/vnstat-web-panel.XXXXXX)" || { echo "❌ mktemp 失败"; exit 1; }
-  trap '[ -n "${TMP_DIR:-}" ] && rm -rf "$TMP_DIR"' EXIT
-
-  download "scripts/vnstat-web-update.sh" "$TMP_DIR/vnstat-web-update.sh"
-  download "web/index.html"              "$TMP_DIR/index.html"
-  download "systemd/vnstat-web-update.service" "$TMP_DIR/vnstat-web-update.service"
-  download "systemd/vnstat-web-update.timer"   "$TMP_DIR/vnstat-web-update.timer"
-  download "cgi-bin/vnstat-web-config.cgi"     "$TMP_DIR/vnstat-web-config.cgi"
-
-  # 安装文件
-  install -m 755 "$TMP_DIR/vnstat-web-update.sh" /usr/local/bin/vnstat-web-update.sh
-  install -m 644 "$TMP_DIR/index.html" "$WEB_PATH/index.html"
-  install -m 755 "$TMP_DIR/vnstat-web-config.cgi" /usr/lib/cgi-bin/vnstat-web-config.cgi
-
-  install -m 644 "$TMP_DIR/vnstat-web-update.service" /etc/systemd/system/vnstat-web-update.service
-  install -m 644 "$TMP_DIR/vnstat-web-update.timer"   /etc/systemd/system/vnstat-web-update.timer
-
-  # lighttpd：端口只在主配置；alias-only 模块；cgi 用系统安全版
-  ensure_lighttpd_port_once "$PORT"
-  setup_lighttpd_alias_only "$WEB_PATH"
-  setup_lighttpd_cgi_safe
-
-  systemctl daemon-reload
-  systemctl enable --now vnstat-web-update.timer >/dev/null 2>&1 || true
-
-  # 检查并启动
-  lighttpd -tt -f /etc/lighttpd/lighttpd.conf
-  systemctl restart lighttpd
-
-  # 生成一次数据
-  /usr/local/bin/vnstat-web-update.sh >/dev/null 2>&1 || true
-
+  ok "安装完成"
   echo
-  echo "✅ 安装完成"
-  echo "- 网卡：$IFACE"
-  echo "- Web： http://<你的服务器IP>:${PORT}/vnstat/"
-  echo "- CGI： http://<你的服务器IP>:${PORT}/cgi-bin/vnstat-web-config.cgi"
+  echo "访问地址："
+  echo "  http://<你的IP>:${port}/"
   echo
   echo "常用命令："
-  echo "- 手动更新：sudo /usr/local/bin/vnstat-web-update.sh"
-  echo "- 看 lighttpd：systemctl status lighttpd --no-pager"
-  echo "- 看日志：journalctl -u lighttpd -n 80 --no-pager"
+  echo "  手动更新：sudo /usr/local/bin/vnstat-web-update.sh"
+  echo "  看 lighttpd：systemctl status lighttpd --no-pager"
+  echo "  看日志：journalctl -u lighttpd -n 80 --no-pager"
 }
 
 main "$@"
