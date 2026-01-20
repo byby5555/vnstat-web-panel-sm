@@ -30,8 +30,6 @@ cp -f "${WEB_ROOT}/vnstat.json" "${WEB_ROOT}/vnstat_5min.json"
 
 chmod 644 "${WEB_ROOT}/vnstat.json" "${WEB_ROOT}/vnstat_5min.json" "${WEB_ROOT}/summary.txt"
 
-# 3) PNG（页面加载 hourly.png / daily.png / monthly.png）
-"$VNSTATI_BIN" -h -i "$IFACE" -o "${WEB_ROOT}/hourly.png"
-"$VNSTATI_BIN" -d -i "$IFACE" -o "${WEB_ROOT}/daily.png"
-"$VNSTATI_BIN" -m -i "$IFACE" -o "${WEB_ROOT}/monthly.png"
-chmod 644 "${WEB_ROOT}/hourly.png" "${WEB_ROOT}/daily.png" "${WEB_ROOT}/monthly.png"
+# 2.5) server_time.json（页面 fetch server_time.json）
+# 前端需要字段：server_time_iso / server_tz / server_utc_offset
+SERVER_TZ="$(timedatectl show -p Timezone --value 2>/dev/null || tru_
