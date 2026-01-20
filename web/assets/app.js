@@ -1,0 +1,1 @@
+// placeholder: keep assets/ for future expansion
