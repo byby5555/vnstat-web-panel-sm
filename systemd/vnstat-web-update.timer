@@ -1,11 +1,14 @@
+sudo tee /etc/systemd/system/vnstat-web-update.timer >/dev/null <<'EOF'
 [Unit]
-Description=Run vnstat web panel update every minute
+Description=Run vnstat web panel update every 1 minute
 
 [Timer]
-OnBootSec=20
-OnUnitActiveSec=60
+OnBootSec=20s
+OnUnitActiveSec=60s
 AccuracySec=10s
 Persistent=true
+Unit=vnstat-web-update.service
 
 [Install]
 WantedBy=timers.target
+EOF
