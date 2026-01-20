@@ -1,1 +1,11 @@
 
+[Unit]
+Description=Check vnstat quota and shutdown if configured
+After=network-online.target
+Wants=network-online.target
+Description=vnstat quota check (auto shutdown)
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/vnstat-quota-check.sh
