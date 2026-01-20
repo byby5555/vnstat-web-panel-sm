@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 log(){ echo -e "[*] $*"; }
 ok(){  echo -e "✅ $*"; }
-err(){ echo -e "❌ $*"; }
+err(){ echo -e "❌ $*" >&2; }
 die(){ err "$*"; exit 1; }
 
 [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "请用 root 运行：sudo bash install.sh"
@@ -64,7 +64,7 @@ cp -a "${SRC_DIR}/web/." /var/www/vnstat-web/
 [[ -f "${SRC_DIR}/cgi-bin/vnstat-web-config.cgi" ]] || die "缺少 cgi-bin/vnstat-web-config.cgi"
 install -m 755 "${SRC_DIR}/cgi-bin/vnstat-web-config.cgi" /usr/lib/cgi-bin/vnstat-web-config.cgi
 
-# 4) 安装更新脚本（生成 vnstat.json / summary.txt / hourly.png 等）
+# 4) 安装更新脚本（生成 vnstat.json / summary.txt / server_time.json / hourly.png 等）
 [[ -f "${SRC_DIR}/scripts/vnstat-web-update.sh" ]] || die "缺少 scripts/vnstat-web-update.sh"
 mkdir -p /usr/local/bin
 install -m 755 "${SRC_DIR}/scripts/vnstat-web-update.sh" /usr/local/bin/vnstat-web-update.sh
@@ -96,7 +96,20 @@ EOF
 sed -i 's/\r$//' "$CONF_AVAIL"
 ln -sf ../conf-available/99-vnstat-web.conf "$CONF_ENAB"
 
-# 8) 首次生成数据文件（关键：避免 summary.txt/vnstat.json/hourly.png 404）
+# 8) 首次生成数据文件：失败就退出（不要吞错）
+chmod +x /usr/local/bin/vnstat-web-update.sh || true
+sed -i 's/\r$//' /usr/local/bin/vnstat-web-update.sh || true
+
+log "首次生成数据文件（vnstat.json/summary.txt/server_time.json/PNG）..."
+if /usr/local/bin/vnstat-web-update.sh; then
+  ok "首次生成完成"
+else
+  err "首次生成失败：请执行 sudo bash -x /usr/local/bin/vnstat-web-update.sh 查看原因"
+  exit 1
+fi
+
+# 再跑一次更稳（刚装 vnstat 时图更容易立刻有）
+sleep 1
 /usr/local/bin/vnstat-web-update.sh || true
 
 # 9) 启用 timer（如果存在）
@@ -114,3 +127,10 @@ systemctl restart lighttpd
 ok "安装完成"
 echo "访问：http://<你的IP>:${PORT}/"
 echo "手动更新：sudo /usr/local/bin/vnstat-web-update.sh"
+
+echo
+echo "---- 安装后自检（HTTP code 应为 200） ----"
+for u in /server_time.json /summary.txt /vnstat.json /vnstat_5min.json /hourly.png /daily.png /monthly.png; do
+  code="$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}${u}" || true)"
+  echo "${code}  ${u}"
+done
