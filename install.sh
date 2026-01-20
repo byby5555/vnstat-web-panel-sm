@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 log(){ echo -e "[*] $*"; }
 ok(){  echo -e "✅ $*"; }
-err(){ echo -e "❌ $*" >&2; }
+err(){ echo -e "❌ $*"; }
 die(){ err "$*"; exit 1; }
 
 [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "请用 root 运行：sudo bash install.sh"
@@ -18,13 +18,28 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get install -y --no-install-recommends curl ca-certificates vnstat lighttpd
 
-# 默认仓库（可覆盖）
+# 默认仓库（可用环境变量覆盖）
 REPO="${GITHUB_REPO:-byby5555/vnstat-web-panel-sm}"
 BRANCH="${GITHUB_BRANCH:-main}"
 RAW_BASE="https://raw.githubusercontent.com/${REPO}/${BRANCH}"
 log "使用资源地址：$RAW_BASE"
 
-# 1) 下载整个仓库源码（确保 web/assets 不丢）
+# 写入配置（可按需扩展）
+CFG="/etc/vnstat-web.conf"
+if [[ ! -f "$CFG" ]]; then
+  cat >"$CFG" <<'EOF'
+# 可选：指定统计网卡，例如 interface=eth0
+# interface=eth0
+quota_gb=1024
+alert_pct=90
+danger_pct=100
+EOF
+  ok "写入配置：$CFG"
+else
+  ok "配置已存在：$CFG"
+fi
+
+# 1) 下载整个仓库源码（避免漏 web/assets 等资源）
 WORK="/tmp/vnstat-web-src.$$"
 rm -rf "$WORK"
 mkdir -p "$WORK"
@@ -45,25 +60,22 @@ rm -rf /var/www/vnstat-web
 mkdir -p /var/www/vnstat-web
 cp -a "${SRC_DIR}/web/." /var/www/vnstat-web/
 
-# 3) 安装 CGI（至少 config CGI 必须有）
+# 3) 安装 CGI
 [[ -f "${SRC_DIR}/cgi-bin/vnstat-web-config.cgi" ]] || die "缺少 cgi-bin/vnstat-web-config.cgi"
 install -m 755 "${SRC_DIR}/cgi-bin/vnstat-web-config.cgi" /usr/lib/cgi-bin/vnstat-web-config.cgi
 
-# 4) 安装更新脚本（必须有，用来生成 vnstat.json / vnstat_5min.json / summary.txt）
+# 4) 安装更新脚本（生成 vnstat.json / summary.txt / hourly.png 等）
 [[ -f "${SRC_DIR}/scripts/vnstat-web-update.sh" ]] || die "缺少 scripts/vnstat-web-update.sh"
 mkdir -p /usr/local/bin
 install -m 755 "${SRC_DIR}/scripts/vnstat-web-update.sh" /usr/local/bin/vnstat-web-update.sh
 
-# 5) 可选：systemd timer（有就装）
+# 5) 安装 systemd（如果仓库提供）
 if [[ -d "${SRC_DIR}/systemd" ]]; then
   cp -a "${SRC_DIR}/systemd/." /etc/systemd/system/ 2>/dev/null || true
   systemctl daemon-reload || true
-  if [[ -f /etc/systemd/system/vnstat-web-update.timer ]]; then
-    systemctl enable --now vnstat-web-update.timer >/dev/null 2>&1 || true
-  fi
 fi
 
-# 6) lighttpd：只启用系统 cgi 模块，避免 cgi.assign 重复
+# 6) lighttpd：只用系统自带 CGI 模块，避免 cgi.assign 重复
 rm -f /etc/lighttpd/conf-enabled/10-cgi-vnstat.conf /etc/lighttpd/conf-available/10-cgi-vnstat.conf || true
 lighty-enable-mod cgi >/dev/null 2>&1 || true
 lighty-disable-mod debian-doc >/dev/null 2>&1 || true
@@ -84,10 +96,15 @@ EOF
 sed -i 's/\r$//' "$CONF_AVAIL"
 ln -sf ../conf-available/99-vnstat-web.conf "$CONF_ENAB"
 
-# 8) 首次生成数据文件（关键：解决 vnstat.json/summary.txt 404）
+# 8) 首次生成数据文件（关键：避免 summary.txt/vnstat.json/hourly.png 404）
 /usr/local/bin/vnstat-web-update.sh || true
 
-# 9) 校验 & 重启
+# 9) 启用 timer（如果存在）
+if [[ -f /etc/systemd/system/vnstat-web-update.timer ]]; then
+  systemctl enable --now vnstat-web-update.timer >/dev/null 2>&1 || true
+fi
+
+# 10) 校验 & 重启
 lighttpd -tt -f /etc/lighttpd/lighttpd.conf || die "lighttpd 配置检测失败：journalctl -u lighttpd -n 120 --no-pager"
 systemctl enable --now vnstat >/dev/null 2>&1 || true
 systemctl restart vnstat >/dev/null 2>&1 || true
@@ -96,4 +113,4 @@ systemctl restart lighttpd
 
 ok "安装完成"
 echo "访问：http://<你的IP>:${PORT}/"
-echo "验证文件：ls -lah /var/www/vnstat-web | egrep 'vnstat\\.json|vnstat_5min\\.json|summary\\.txt'"
+echo "手动更新：sudo /usr/local/bin/vnstat-web-update.sh"
