@@ -14,98 +14,66 @@ PORT="${PORT:-$DEFAULT_PORT}"
 [[ "$PORT" =~ ^[0-9]{1,5}$ ]] || die "端口必须是数字"
 (( PORT >= 1 && PORT <= 65535 )) || die "端口范围必须在 1-65535"
 
-CFG="/etc/vnstat-web.conf"
-if [[ ! -f "$CFG" ]]; then
-  cat >"$CFG" <<'EOF'
-quota_gb=1024
-alert_pct=90
-danger_pct=100
-EOF
-fi
-ok "写入配置：$CFG"
-
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get install -y --no-install-recommends curl ca-certificates vnstat lighttpd
 
-# 固定默认仓库（可覆盖）
+# 默认仓库（可覆盖）
 REPO="${GITHUB_REPO:-byby5555/vnstat-web-panel-sm}"
 BRANCH="${GITHUB_BRANCH:-main}"
 RAW_BASE="https://raw.githubusercontent.com/${REPO}/${BRANCH}"
 log "使用资源地址：$RAW_BASE"
 
-TMP_DIR="$(mktemp -d /tmp/vnstat-web-panel.XXXXXX)"
-cleanup(){ rm -rf "$TMP_DIR" 2>/dev/null || true; }
-trap cleanup EXIT
-cd "$TMP_DIR"
+# 1) 下载整个仓库源码（确保 web/assets 不丢）
+WORK="/tmp/vnstat-web-src.$$"
+rm -rf "$WORK"
+mkdir -p "$WORK"
+cd "$WORK"
 
-download_required() {
-  local url="$1" out="$2" mode="${3:-}"
-  if ! curl -fsSL "$url" -o "$out"; then
-    die "下载失败：$url"
-  fi
-  [[ -n "$mode" ]] && chmod "$mode" "$out" || true
-}
+TARBALL_URL="https://github.com/${REPO}/archive/refs/heads/${BRANCH}.tar.gz"
+log "下载源码包：$TARBALL_URL"
+curl -fsSL -L "$TARBALL_URL" -o src.tgz || die "下载源码包失败：$TARBALL_URL"
+tar -xzf src.tgz
 
-download_optional() {
-  local url="$1" out="$2" mode="${3:-}"
-  curl -fsSL "$url" -o "$out" >/dev/null 2>&1 || true
-  [[ -s "$out" && -n "$mode" ]] && chmod "$mode" "$out" || true
-  return 0
-}
+REPO_NAME="$(echo "$REPO" | awk -F/ '{print $2}')"
+SRC_DIR="$(find . -maxdepth 1 -type d -name "${REPO_NAME}-*" | head -n 1)"
+[[ -n "$SRC_DIR" ]] || die "解压后未找到源码目录"
 
-mkdir -p web cgi-bin scripts systemd
-
-# 必需文件
-download_required "$RAW_BASE/web/index.html" "web/index.html" 644
-download_required "$RAW_BASE/cgi-bin/vnstat-web-config.cgi" "cgi-bin/vnstat-web-config.cgi" 755
-download_required "$RAW_BASE/scripts/vnstat-web-update.sh" "scripts/vnstat-web-update.sh" 755
-
-# 可选
-download_optional "$RAW_BASE/scripts/vnstat-quota-check.sh" "scripts/vnstat-quota-check.sh" 755
-download_optional "$RAW_BASE/systemd/vnstat-web-update.service" "systemd/vnstat-web-update.service" 644
-download_optional "$RAW_BASE/systemd/vnstat-web-update.timer"   "systemd/vnstat-web-update.timer" 644
-download_optional "$RAW_BASE/systemd/vnstat-quota-check.service" "systemd/vnstat-quota-check.service" 644
-download_optional "$RAW_BASE/systemd/vnstat-quota-check.timer"   "systemd/vnstat-quota-check.timer" 644
-
-# 安装 web
+# 2) 安装 web（整目录）
+[[ -d "${SRC_DIR}/web" ]] || die "源码包中缺少 web/ 目录"
 rm -rf /var/www/vnstat-web
 mkdir -p /var/www/vnstat-web
-cp -a web/. /var/www/vnstat-web/
+cp -a "${SRC_DIR}/web/." /var/www/vnstat-web/
 
-# 安装 CGI
-install -m 755 cgi-bin/vnstat-web-config.cgi /usr/lib/cgi-bin/vnstat-web-config.cgi
+# 3) 安装 CGI（至少 config CGI 必须有）
+[[ -f "${SRC_DIR}/cgi-bin/vnstat-web-config.cgi" ]] || die "缺少 cgi-bin/vnstat-web-config.cgi"
+install -m 755 "${SRC_DIR}/cgi-bin/vnstat-web-config.cgi" /usr/lib/cgi-bin/vnstat-web-config.cgi
 
-# 安装脚本
+# 4) 安装更新脚本（必须有，用来生成 vnstat.json / vnstat_5min.json / summary.txt）
+[[ -f "${SRC_DIR}/scripts/vnstat-web-update.sh" ]] || die "缺少 scripts/vnstat-web-update.sh"
 mkdir -p /usr/local/bin
-install -m 755 scripts/vnstat-web-update.sh /usr/local/bin/vnstat-web-update.sh
-[[ -f scripts/vnstat-quota-check.sh ]] && install -m 755 scripts/vnstat-quota-check.sh /usr/local/bin/vnstat-quota-check.sh || true
+install -m 755 "${SRC_DIR}/scripts/vnstat-web-update.sh" /usr/local/bin/vnstat-web-update.sh
 
-# systemd（可选）
-if compgen -G "systemd/*.service" >/dev/null || compgen -G "systemd/*.timer" >/dev/null; then
-  cp -a systemd/. /etc/systemd/system/ || true
+# 5) 可选：systemd timer（有就装）
+if [[ -d "${SRC_DIR}/systemd" ]]; then
+  cp -a "${SRC_DIR}/systemd/." /etc/systemd/system/ 2>/dev/null || true
   systemctl daemon-reload || true
-  for t in /etc/systemd/system/*.timer; do
-    [[ -f "$t" ]] || continue
-    systemctl enable --now "$(basename "$t")" >/dev/null 2>&1 || true
-  done
+  if [[ -f /etc/systemd/system/vnstat-web-update.timer ]]; then
+    systemctl enable --now vnstat-web-update.timer >/dev/null 2>&1 || true
+  fi
 fi
 
-# ========== 关键：清理遗留的自定义 CGI conf，避免重复 cgi.assign ==========
-# 你的日志显示现在确实启用了它（或者之前启用过）
-rm -f /etc/lighttpd/conf-enabled/10-cgi-vnstat.conf || true
-rm -f /etc/lighttpd/conf-available/10-cgi-vnstat.conf || true
-
-# 只启用 Debian 自带 CGI 模块（它会提供 /cgi-bin/ 的 cgi.assign）
+# 6) lighttpd：只启用系统 cgi 模块，避免 cgi.assign 重复
+rm -f /etc/lighttpd/conf-enabled/10-cgi-vnstat.conf /etc/lighttpd/conf-available/10-cgi-vnstat.conf || true
 lighty-enable-mod cgi >/dev/null 2>&1 || true
 lighty-disable-mod debian-doc >/dev/null 2>&1 || true
 
-# 我们自己的 conf：不写 cgi.assign，避免和 /etc/lighttpd/conf-enabled/10-cgi.conf 冲突
+# 7) 写入面板 socket 配置（不写 server.port，不写 cgi.assign）
 CONF_AVAIL="/etc/lighttpd/conf-available/99-vnstat-web.conf"
 CONF_ENAB="/etc/lighttpd/conf-enabled/99-vnstat-web.conf"
 
 cat >"$CONF_AVAIL" <<EOF
-# vnstat web panel (safe): no server.port, no cgi.assign
+# vnstat web panel (safe)
 \$SERVER["socket"] == ":${PORT}" {
   server.document-root = "/var/www/vnstat-web"
   index-file.names = ( "index.html" )
@@ -116,7 +84,10 @@ EOF
 sed -i 's/\r$//' "$CONF_AVAIL"
 ln -sf ../conf-available/99-vnstat-web.conf "$CONF_ENAB"
 
-# 验证与重启
+# 8) 首次生成数据文件（关键：解决 vnstat.json/summary.txt 404）
+/usr/local/bin/vnstat-web-update.sh || true
+
+# 9) 校验 & 重启
 lighttpd -tt -f /etc/lighttpd/lighttpd.conf || die "lighttpd 配置检测失败：journalctl -u lighttpd -n 120 --no-pager"
 systemctl enable --now vnstat >/dev/null 2>&1 || true
 systemctl restart vnstat >/dev/null 2>&1 || true
@@ -125,4 +96,4 @@ systemctl restart lighttpd
 
 ok "安装完成"
 echo "访问：http://<你的IP>:${PORT}/"
-echo "测试 CGI：curl -i http://127.0.0.1:${PORT}/cgi-bin/vnstat-web-config.cgi"
+echo "验证文件：ls -lah /var/www/vnstat-web | egrep 'vnstat\\.json|vnstat_5min\\.json|summary\\.txt'"
