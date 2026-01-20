@@ -1,0 +1,11 @@
+[Unit]
+Description=Run vnstat-web-update every 5 minutes
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=5m
+AccuracySec=10s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

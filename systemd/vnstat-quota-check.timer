@@ -1,0 +1,14 @@
+[Unit]
+Description=Run vnstat quota check every 5 minutes
+Description=Run vnstat quota check periodically
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=5m
+AccuracySec=10s
+OnBootSec=5min
+OnUnitActiveSec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
