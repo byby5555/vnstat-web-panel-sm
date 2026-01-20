@@ -1,0 +1,5 @@
+# vnstat-web-panel install config (example)
+# These values are written by install.sh to /etc/vnstat-web.conf
+IFACE=eth0
+WEB_PATH=/var/www/html/vnstat
+PORT=8888
