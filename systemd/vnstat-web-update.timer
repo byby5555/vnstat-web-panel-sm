@@ -1,9 +1,9 @@
 [Unit]
-Description=Run vnstat-web-update every 5 minutes
+Description=Run vnstat web panel update every minute
 
 [Timer]
-OnBootSec=30s
-OnUnitActiveSec=5m
+OnBootSec=20
+OnUnitActiveSec=60
 AccuracySec=10s
 Persistent=true
 
