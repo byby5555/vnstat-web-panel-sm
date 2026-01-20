@@ -1,7 +1,5 @@
 [Unit]
-Description=Generate vnStat web data (json/png/summary)
-After=network-online.target
-Wants=network-online.target
+Description=Update vnstat web panel data
 
 [Service]
 Type=oneshot
