@@ -5,7 +5,7 @@ A lightweight VNStat web panel for Debian/Ubuntu using Lighttpd + CGI.
 ## Install (one-liner)
 
 ```bash
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/<YOUR_GH_USER>/vnstat-web-panel/main/install.sh)
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/byby5555/vnstat-web-panel-sm/main/install.sh)
 ```
 
 During install you can input the panel port (default: `8888`).
