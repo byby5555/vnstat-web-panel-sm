@@ -19,9 +19,18 @@ rm -f /etc/systemd/system/vnstat-web-update.timer
 rm -f /etc/systemd/system/vnstat-web-update.service
 systemctl daemon-reload >/dev/null 2>&1 || true
 
-log "移除 lighttpd 面板配置..."
+log "移除 lighttpd 面板相关配置（仅删除本项目文件）..."
+# 主面板 conf
 rm -f /etc/lighttpd/conf-enabled/99-vnstat-web.conf
 rm -f /etc/lighttpd/conf-available/99-vnstat-web.conf
+
+# /vnstat/ alias（你现在的标准方案）
+rm -f /etc/lighttpd/conf-enabled/50-vnstat-alias.conf
+rm -f /etc/lighttpd/conf-available/50-vnstat-alias.conf
+
+# nocache（如果你项目安装过）
+rm -f /etc/lighttpd/conf-enabled/98-vnstat-web-nocache.conf
+rm -f /etc/lighttpd/conf-available/98-vnstat-web-nocache.conf
 
 # 你之前遇到过 legacy/冲突文件，这里也顺便清理（不影响系统 cgi 模块）
 rm -f /etc/lighttpd/conf-enabled/10-cgi-vnstat.conf /etc/lighttpd/conf-available/10-cgi-vnstat.conf || true
