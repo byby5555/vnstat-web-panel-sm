@@ -132,6 +132,6 @@ echo
 
 echo "---- 安装后自检（HTTP code 应为 200） ----"
 for u in / /vnstat.json /vnstat_5min.json /summary.txt /server_time.json /hourly.png /daily.png /monthly.png; do
-  code="$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}/vnstat${u}" || true)"
-  echo "${code}  /vnstat${u}"
+  code="$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}${u}" || true)"
+  echo "${code}  ${u}"
 done
