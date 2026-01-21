@@ -592,24 +592,6 @@
     document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
   }
 
-  function getInterfaceTotalBytes(iface){
-    if (!iface || !iface.traffic) return 0;
-    const total = iface.traffic.total || {};
-    const rx = total.rx ?? total.rx_bytes ?? 0;
-    const tx = total.tx ?? total.tx_bytes ?? 0;
-    const sum = (Number(rx) || 0) + (Number(tx) || 0);
-    if (sum > 0) return sum;
-
-    const monthArr = iface.traffic.month || iface.traffic.months || [];
-    if (Array.isArray(monthArr) && monthArr.length) {
-      const last = monthArr[monthArr.length - 1];
-      const mrx = last.rx ?? last.rx_bytes ?? 0;
-      const mtx = last.tx ?? last.tx_bytes ?? 0;
-      return (Number(mrx) || 0) + (Number(mtx) || 0);
-    }
-    return 0;
-  }
-
   function pickInterface(vn){
     const list = Array.isArray(vn.interfaces) ? vn.interfaces : [];
     if (!list.length) return null;
@@ -617,17 +599,7 @@
       const matched = list.find((item) => item && item.name === IFACE_NAME);
       if (matched) return matched;
     }
-    let best = null;
-    let bestScore = -1;
-    for (const item of list) {
-      if (!item || !item.traffic) continue;
-      const score = getInterfaceTotalBytes(item);
-      if (score > bestScore) {
-        best = item;
-        bestScore = score;
-      }
-    }
-    return best || list.find((item) => item && item.traffic) || list[0];
+    return list.find((item) => item && item.traffic) || list[0];
   }
 
   function updateIfaceLabel(iface){
