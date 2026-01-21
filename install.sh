@@ -54,6 +54,34 @@ log "创建 Web 目录..."
 mkdir -p /var/www/vnstat-web
 cp -a "$BASE_DIR/web/." /var/www/vnstat-web/
 
+log "写入配置 /etc/vnstat-web.conf..."
+detect_iface() {
+  local dev=""
+  if command -v ip >/dev/null 2>&1; then
+    dev="$(ip -o route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev"){print $(i+1); exit}}')"
+  fi
+  if [[ -n "${dev:-}" && "$dev" != "lo" ]]; then
+    echo "$dev"
+    return 0
+  fi
+  if command -v ip >/dev/null 2>&1; then
+    ip -o link show | awk -F': ' '{print $2}' | grep -vE '^(lo|docker|veth|br-|virbr|wg|tun|tap)' | head -n 1 && return 0
+  fi
+  return 1
+}
+
+IFACE_DETECTED="$(detect_iface || true)"
+cat > /etc/vnstat-web.conf <<EOF
+IFACE=${IFACE_DETECTED:-eth0}
+WEB_ROOT=/var/www/vnstat-web
+WEB_PATH=/var/www/vnstat-web
+PORT=${PORT}
+FIVE_MIN_POINTS=288
+QUOTA_GB=1024
+ALERT_PCT=90
+DANGER_PCT=100
+EOF
+
 log "安装并启用 lighttpd /vnstat/ alias..."
 # 只使用 alias 方案：不再安装 99-vnstat-web.conf（避免冲突/改 document-root）
 install -m 644 "$BASE_DIR/lighttpd/50-vnstat-alias.conf" /etc/lighttpd/conf-available/50-vnstat-alias.conf
@@ -82,6 +110,13 @@ systemctl restart lighttpd
 
 log "安装 vnstat-web-update..."
 install -m 755 "$BASE_DIR/scripts/vnstat-web-update.sh" /usr/local/bin/vnstat-web-update.sh
+
+log "生成初始数据文件..."
+if /usr/local/bin/vnstat-web-update.sh; then
+  ok "初始数据文件已生成"
+else
+  err "初始数据生成失败（请检查 vnstat 服务和接口配置）"
+fi
 
 log "安装 systemd 单元..."
 if [[ -d "$BASE_DIR/systemd" ]]; then
