@@ -86,6 +86,8 @@ log "安装并启用 lighttpd /vnstat/ alias..."
 # 只使用 alias 方案：不再安装 99-vnstat-web.conf（避免冲突/改 document-root）
 install -m 644 "$BASE_DIR/lighttpd/50-vnstat-alias.conf" /etc/lighttpd/conf-available/50-vnstat-alias.conf
 ln -sf /etc/lighttpd/conf-available/50-vnstat-alias.conf /etc/lighttpd/conf-enabled/50-vnstat-alias.conf
+install -m 644 "$BASE_DIR/lighttpd/51-vnstat-root-redirect.conf" /etc/lighttpd/conf-available/51-vnstat-root-redirect.conf
+ln -sf /etc/lighttpd/conf-available/51-vnstat-root-redirect.conf /etc/lighttpd/conf-enabled/51-vnstat-root-redirect.conf
 
 # （可选）nocache 配置：存在就启用，不存在就跳过
 if [[ -f "$BASE_DIR/lighttpd/98-vnstat-web-nocache.conf" ]]; then
