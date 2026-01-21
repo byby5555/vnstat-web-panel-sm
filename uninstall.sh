@@ -27,6 +27,8 @@ rm -f /etc/lighttpd/conf-available/99-vnstat-web.conf
 # /vnstat/ alias（你现在的标准方案）
 rm -f /etc/lighttpd/conf-enabled/50-vnstat-alias.conf
 rm -f /etc/lighttpd/conf-available/50-vnstat-alias.conf
+rm -f /etc/lighttpd/conf-enabled/51-vnstat-root-redirect.conf
+rm -f /etc/lighttpd/conf-available/51-vnstat-root-redirect.conf
 
 # nocache（如果你项目安装过）
 rm -f /etc/lighttpd/conf-enabled/98-vnstat-web-nocache.conf
