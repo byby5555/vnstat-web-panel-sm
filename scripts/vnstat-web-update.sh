@@ -3,6 +3,18 @@ set -Eeuo pipefail
 
 WEB_ROOT=/var/www/vnstat-web
 CFG=/etc/vnstat-web.conf
+QUOTA_CONF=/etc/vnstat-web/quota.json
+
+if [[ -f "$CFG" ]]; then
+  # shellcheck disable=SC1090
+  . "$CFG"
+fi
+
+WEB_ROOT="${WEB_ROOT:-${WEB_PATH:-/var/www/vnstat-web}}"
+FIVE_MIN_POINTS="${FIVE_MIN_POINTS:-288}"
+QUOTA_GB="${QUOTA_GB:-1024}"
+ALERT_PCT="${ALERT_PCT:-90}"
+DANGER_PCT="${DANGER_PCT:-100}"
 
 mkdir -p "$WEB_ROOT"
 
@@ -33,10 +45,7 @@ detect_iface() {
   return 1
 }
 
-IFACE=""
-if [[ -f "$CFG" ]]; then
-  IFACE="$(grep -E '^interface=' "$CFG" | head -n1 | cut -d= -f2- | tr -d ' \r\n' || true)"
-fi
+IFACE="${IFACE:-}"
 if [[ -z "$IFACE" ]]; then
   IFACE="$(detect_iface || true)"
 fi
@@ -53,7 +62,12 @@ fi
 "$VNSTAT_BIN" -u -i "$IFACE" || true
 
 "$VNSTAT_BIN" --json > "$WEB_ROOT/vnstat.json"
-cp -f "$WEB_ROOT/vnstat.json" "$WEB_ROOT/vnstat_5min.json"
+if "$VNSTAT_BIN" --json f "$FIVE_MIN_POINTS" -i "$IFACE" > "$WEB_ROOT/vnstat_5min.json.tmp"; then
+  mv "$WEB_ROOT/vnstat_5min.json.tmp" "$WEB_ROOT/vnstat_5min.json"
+else
+  rm -f "$WEB_ROOT/vnstat_5min.json.tmp"
+  cp -f "$WEB_ROOT/vnstat.json" "$WEB_ROOT/vnstat_5min.json"
+fi
 
 {
   echo "Interface: $IFACE"
@@ -68,6 +82,13 @@ SERVER_UTC_OFFSET="$(date +%z)"
 printf '{"server_time_iso":"%s","server_tz":"%s","server_utc_offset":"%s"}\n' "$SERVER_TIME_ISO" "${SERVER_TZ:-}" "$SERVER_UTC_OFFSET" > "$WEB_ROOT/server_time.json"
 
 chmod 644   "$WEB_ROOT/vnstat.json"   "$WEB_ROOT/vnstat_5min.json"   "$WEB_ROOT/summary.txt"   "$WEB_ROOT/server_time.json"
+
+if [[ -f "$QUOTA_CONF" ]]; then
+  cp -f "$QUOTA_CONF" "$WEB_ROOT/quota.json"
+else
+  printf '{"quota_gb":%s,"alert_pct":%s,"danger_pct":%s}\n' "$QUOTA_GB" "$ALERT_PCT" "$DANGER_PCT" > "$WEB_ROOT/quota.json"
+fi
+chmod 644 "$WEB_ROOT/quota.json"
 
 if [[ -n "${VNSTATI_BIN}" ]]; then
   "$VNSTATI_BIN" -h -i "$IFACE" -o "$WEB_ROOT/hourly.png"
