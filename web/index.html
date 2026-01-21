@@ -390,7 +390,7 @@
     </div>
 
     <div class="tiny" id="quotaHint">
-      保存后：<b>黄灯=告警</b>，<b>红灯=危险</b>。设置由服务器 CGI 保存（不需要 token）。
+      保存后：<b>黄灯=告警</b>，<b>红灯=危险</b>。默认保存到浏览器本地。
     </div>
 
     <div class="actions">
@@ -401,17 +401,17 @@
 </div>
 
 <script>
-  const IFACE_NAME = "eth0";
+  const IFACE_NAME = "auto";
   const THEME_KEY = "vnstat_theme_pref";
 
-  // CGI 入口（lighttpd 默认 /cgi-bin/）
-  const CGI_URL = "/cgi-bin/vnstat-web-config.cgi";
+  const QUOTA_URL = "quota.json";
+  const QUOTA_LOCAL_KEY = "vnstat_quota_settings";
 
   let view = 'traffic'; // traffic | rate
   let mode = 'hour';    // fivemin | hour | day | month
   let chart;
 
-  document.getElementById('ifaceName').textContent = IFACE_NAME;
+  document.getElementById('ifaceName').textContent = IFACE_NAME === 'auto' ? '自动' : IFACE_NAME;
 
   function isDaytimeByBrowser(){
     const h = new Date().getHours();
@@ -592,9 +592,25 @@
     document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
   }
 
+  function pickInterface(vn){
+    const list = Array.isArray(vn.interfaces) ? vn.interfaces : [];
+    if (!list.length) return null;
+    if (IFACE_NAME && IFACE_NAME !== 'auto') {
+      const matched = list.find((item) => item && item.name === IFACE_NAME);
+      if (matched) return matched;
+    }
+    return list.find((item) => item && item.traffic) || list[0];
+  }
+
+  function updateIfaceLabel(iface){
+    if (!iface || !iface.name) return;
+    document.getElementById('ifaceName').textContent = iface.name;
+  }
+
   function pickSeriesFromVnstatJson(vn, pickMode) {
-    const iface = (vn.interfaces && vn.interfaces[0]) ? vn.interfaces[0] : null;
+    const iface = pickInterface(vn);
     if (!iface || !iface.traffic) return null;
+    updateIfaceLabel(iface);
 
     let key = pickMode;
     if (!iface.traffic[key]) {
@@ -641,8 +657,9 @@
   }
 
   function pickSeriesFrom5MinJson(vn) {
-    const iface = (vn.interfaces && vn.interfaces[0]) ? vn.interfaces[0] : null;
+    const iface = pickInterface(vn);
     if (!iface || !iface.traffic) return null;
+    updateIfaceLabel(iface);
 
     // ✅ vnstat 2.10: traffic.fiveminute
     const arr = iface.traffic.fiveminute || iface.traffic.fivemin || iface.traffic.fiveminutes || iface.traffic.f || null;
@@ -738,12 +755,13 @@
       .catch(()=>{});
   }
 
-  // ===== CGI 阈值设置 =====
+  // ===== 阈值设置 =====
   function bytesToGB(bytes){ return (Number(bytes)||0) / 1024 / 1024 / 1024; }
 
   function getMonthTotalBytes(vn){
-    const iface = (vn.interfaces && vn.interfaces[0]) ? vn.interfaces[0] : null;
+    const iface = pickInterface(vn);
     if(!iface || !iface.traffic) return null;
+    updateIfaceLabel(iface);
 
     const monthArr = iface.traffic.month || iface.traffic.months || null;
     if(Array.isArray(monthArr) && monthArr.length){
@@ -760,37 +778,48 @@
     return null;
   }
 
-  async function cgiGetQuota(){
-    const r = await fetch(CGI_URL + '?_=' + Date.now(), { cache: 'no-store' });
-    if(!r.ok) throw new Error('CGI GET HTTP ' + r.status);
-    return await r.json(); // {quota_gb, alert_pct, danger_pct}
+  function readQuotaLocal(){
+    try{
+      const raw = localStorage.getItem(QUOTA_LOCAL_KEY);
+      if(!raw) return null;
+      const data = JSON.parse(raw);
+      if (!data || typeof data !== 'object') return null;
+      return data;
+    }catch(e){
+      return null;
+    }
   }
 
-  async function cgiSaveQuota(quota_gb, alert_pct, danger_pct){
-    const body = new URLSearchParams();
-    body.set('quota_gb', String(quota_gb));
-    body.set('alert_pct', String(alert_pct));
-    body.set('danger_pct', String(danger_pct));
+  function saveQuotaLocal(quota_gb, alert_pct, danger_pct){
+    const payload = {
+      quota_gb: Number(quota_gb),
+      alert_pct: Number(alert_pct),
+      danger_pct: Number(danger_pct),
+      saved_at: new Date().toISOString()
+    };
+    localStorage.setItem(QUOTA_LOCAL_KEY, JSON.stringify(payload));
+    return payload;
+  }
 
-    const r = await fetch(CGI_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString()
-    });
-    if(!r.ok) throw new Error('CGI POST HTTP ' + r.status);
-    const j = await r.json();
-    if(!j || j.ok !== true) throw new Error('CGI bad response');
-    return true;
+  async function fetchQuotaFile(){
+    const r = await fetch(QUOTA_URL + '?_=' + Date.now(), { cache: 'no-store' });
+    if(!r.ok) throw new Error('quota.json HTTP ' + r.status);
+    return await r.json();
+  }
+
+  async function loadQuotaSettings(){
+    const local = readQuotaLocal();
+    if (local) return local;
+    return await fetchQuotaFile();
   }
 
   async function refreshQuotaAlarm(){
     let settings;
     try{
-      settings = await cgiGetQuota();
+      settings = await loadQuotaSettings();
     }catch(e){
-      // CGI 不通就不要乱红
       document.getElementById('monthQuota').textContent = '-';
-      document.getElementById('monthUsage').textContent = 'CGI失败';
+      document.getElementById('monthUsage').textContent = '阈值读取失败';
       document.getElementById('monthPct').textContent = '-';
       return;
     }
@@ -839,18 +868,18 @@
 
   // 弹窗
   function openQuotaModal(){
-    document.getElementById('quotaHint').textContent = '读取服务器设置中...';
+    document.getElementById('quotaHint').textContent = '读取设置中...';
     document.getElementById('quotaMask').style.display = 'flex';
 
-    cgiGetQuota().then(s=>{
+    loadQuotaSettings().then(s=>{
       document.getElementById('q_quota_gb').value = Number(s.quota_gb)||1024;
       document.getElementById('q_alert_pct').value = Number(s.alert_pct)||90;
       document.getElementById('q_danger_pct').value = Number(s.danger_pct)||100;
       document.getElementById('quotaHint').innerHTML =
-        '保存后：<b>黄灯=告警</b>，<b>红灯=危险</b>。设置由服务器 CGI 保存（不需要 token）。';
+        '保存后：<b>黄灯=告警</b>，<b>红灯=危险</b>。默认保存到浏览器本地（如需全局共享，请维护 quota.json）。';
     }).catch(()=>{
       document.getElementById('quotaHint').textContent =
-        '读取失败：CGI 不可用（检查 lighttpd cgi 模块和 /usr/lib/cgi-bin 权限）';
+        '读取失败：未找到 quota.json 或浏览器设置';
     });
   }
   function closeQuotaModal(){ document.getElementById('quotaMask').style.display = 'none'; }
@@ -867,14 +896,9 @@
     const danger_pct0 = Math.min(100, Math.max(1, Number(document.getElementById('q_danger_pct').value || 0)));
     const danger_pct = Math.max(danger_pct0, alert_pct);
 
-    try{
-      await cgiSaveQuota(quota_gb, alert_pct, danger_pct);
-      closeQuotaModal();
-      await refreshQuotaAlarm();
-    }catch(e){
-      document.getElementById('quotaHint').textContent =
-        '保存失败：' + (e.message || e);
-    }
+    saveQuotaLocal(quota_gb, alert_pct, danger_pct);
+    closeQuotaModal();
+    await refreshQuotaAlarm();
   };
 
   function tick(){
