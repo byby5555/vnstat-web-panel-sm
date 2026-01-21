@@ -401,7 +401,7 @@
 </div>
 
 <script>
-  const IFACE_NAME = "eth0";
+  const IFACE_NAME = "auto";
   const THEME_KEY = "vnstat_theme_pref";
 
   const QUOTA_URL = "quota.json";
@@ -411,7 +411,7 @@
   let mode = 'hour';    // fivemin | hour | day | month
   let chart;
 
-  document.getElementById('ifaceName').textContent = IFACE_NAME;
+  document.getElementById('ifaceName').textContent = IFACE_NAME === 'auto' ? '自动' : IFACE_NAME;
 
   function isDaytimeByBrowser(){
     const h = new Date().getHours();
@@ -592,9 +592,25 @@
     document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
   }
 
+  function pickInterface(vn){
+    const list = Array.isArray(vn.interfaces) ? vn.interfaces : [];
+    if (!list.length) return null;
+    if (IFACE_NAME && IFACE_NAME !== 'auto') {
+      const matched = list.find((item) => item && item.name === IFACE_NAME);
+      if (matched) return matched;
+    }
+    return list.find((item) => item && item.traffic) || list[0];
+  }
+
+  function updateIfaceLabel(iface){
+    if (!iface || !iface.name) return;
+    document.getElementById('ifaceName').textContent = iface.name;
+  }
+
   function pickSeriesFromVnstatJson(vn, pickMode) {
-    const iface = (vn.interfaces && vn.interfaces[0]) ? vn.interfaces[0] : null;
+    const iface = pickInterface(vn);
     if (!iface || !iface.traffic) return null;
+    updateIfaceLabel(iface);
 
     let key = pickMode;
     if (!iface.traffic[key]) {
@@ -641,8 +657,9 @@
   }
 
   function pickSeriesFrom5MinJson(vn) {
-    const iface = (vn.interfaces && vn.interfaces[0]) ? vn.interfaces[0] : null;
+    const iface = pickInterface(vn);
     if (!iface || !iface.traffic) return null;
+    updateIfaceLabel(iface);
 
     // ✅ vnstat 2.10: traffic.fiveminute
     const arr = iface.traffic.fiveminute || iface.traffic.fivemin || iface.traffic.fiveminutes || iface.traffic.f || null;
@@ -742,8 +759,9 @@
   function bytesToGB(bytes){ return (Number(bytes)||0) / 1024 / 1024 / 1024; }
 
   function getMonthTotalBytes(vn){
-    const iface = (vn.interfaces && vn.interfaces[0]) ? vn.interfaces[0] : null;
+    const iface = pickInterface(vn);
     if(!iface || !iface.traffic) return null;
+    updateIfaceLabel(iface);
 
     const monthArr = iface.traffic.month || iface.traffic.months || null;
     if(Array.isArray(monthArr) && monthArr.length){
