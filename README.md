@@ -19,7 +19,7 @@ During install you can input the panel port (default: `8888`).
 
 ## After install
 
-- Web: `http://<server-ip>:<port>/vnstat/`
+- Web: `http://<server-ip>:<port>/` (redirects to `/vnstat/`)
 - CGI: `http://<server-ip>:<port>/cgi-bin/vnstat-web-config.cgi`
 
 Common commands:

@@ -61,7 +61,7 @@ fi
 
 "$VNSTAT_BIN" -u -i "$IFACE" || true
 
-"$VNSTAT_BIN" --json > "$WEB_ROOT/vnstat.json"
+"$VNSTAT_BIN" --json -i "$IFACE" > "$WEB_ROOT/vnstat.json"
 if "$VNSTAT_BIN" --json f "$FIVE_MIN_POINTS" -i "$IFACE" > "$WEB_ROOT/vnstat_5min.json.tmp"; then
   mv "$WEB_ROOT/vnstat_5min.json.tmp" "$WEB_ROOT/vnstat_5min.json"
 else
