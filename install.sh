@@ -111,6 +111,13 @@ systemctl restart lighttpd
 log "安装 vnstat-web-update..."
 install -m 755 "$BASE_DIR/scripts/vnstat-web-update.sh" /usr/local/bin/vnstat-web-update.sh
 
+log "生成初始数据文件..."
+if /usr/local/bin/vnstat-web-update.sh; then
+  ok "初始数据文件已生成"
+else
+  err "初始数据生成失败（请检查 vnstat 服务和接口配置）"
+fi
+
 log "安装 systemd 单元..."
 if [[ -d "$BASE_DIR/systemd" ]]; then
   cp -a "$BASE_DIR/systemd/"* /etc/systemd/system/ || true
