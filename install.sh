@@ -129,11 +129,11 @@ fi
 
 ok "安装完成"
 echo
-echo "访问：http://<你的IP>:${PORT}/ （跳转到 /vnstat/）或 http://<你的IP>:${PORT}/vnstat/"
+echo "访问：http://<你的IP>:${PORT}/ （与 /vnstat/ 同一页面）或 http://<你的IP>:${PORT}/vnstat/"
 echo
 
 echo "---- 安装后自检（HTTP code 应为 200） ----"
 for u in / /vnstat.json /vnstat_5min.json /summary.txt /server_time.json /hourly.png /daily.png /monthly.png; do
-  code="$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}/vnstat${u}" || true)"
-  echo "${code}  /vnstat${u}"
+  code="$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}${u}" || true)"
+  echo "${code}  ${u}"
 done
