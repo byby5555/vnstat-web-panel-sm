@@ -127,7 +127,7 @@ fi
 
 ok "安装完成"
 echo
-echo "访问：http://<你的IP>:${PORT}/vnstat/"
+echo "访问：http://<你的IP>:${PORT}/ 或 http://<你的IP>:${PORT}/vnstat/"
 echo
 
 echo "---- 安装后自检（HTTP code 应为 200） ----"
