@@ -1,5 +1,10 @@
 # vnstat-web-panel install config (example)
 # These values are written by install.sh to /etc/vnstat-web.conf
 IFACE=eth0
-WEB_PATH=/var/www/html/vnstat
+WEB_ROOT=/var/www/vnstat-web
+WEB_PATH=/var/www/vnstat-web
 PORT=8888
+FIVE_MIN_POINTS=288
+QUOTA_GB=1024
+ALERT_PCT=90
+DANGER_PCT=100
