@@ -345,6 +345,7 @@
     .btn:hover{ background: rgba(255,255,255,.12); }
     .btn.primary:hover{ filter: brightness(1.05); }
     .tiny{color:var(--muted);font-size:12px;line-height:1.6}
+    .tiny.error{color:var(--bad);}
 
     @keyframes drift{
       0%{ transform: translate3d(0,0,0) scale(1); }
@@ -1121,7 +1122,10 @@
 
   // 弹窗
   function openQuotaModal(){
-    document.getElementById('quotaHint').textContent = '读取设置中...';
+    const hint = document.getElementById('quotaHint');
+    hint.textContent = '读取设置中...';
+    hint.classList.remove('error');
+    document.getElementById('q_token').classList.remove('error');
     document.getElementById('quotaMask').style.display = 'flex';
 
     loadQuotaSettings().then(raw=>{
@@ -1139,8 +1143,9 @@
       document.getElementById('quotaHint').innerHTML =
         '保存后：<b>黄灯=告警</b>，<b>红灯=危险</b>。可选同步到服务器（需 Token）。';
     }).catch(()=>{
-      document.getElementById('quotaHint').textContent =
+      hint.textContent =
         '读取失败：未找到 quota.json 或浏览器设置';
+      hint.classList.add('error');
     });
   }
   function closeQuotaModal(){ document.getElementById('quotaMask').style.display = 'none'; }
@@ -1152,6 +1157,8 @@
   };
 
   document.getElementById('btnQuotaSave').onclick = async () => {
+    const hint = document.getElementById('quotaHint');
+    hint.classList.remove('error');
     const quota_gb = Math.max(1, Number(document.getElementById('q_quota_gb').value || 0));
     const alert_pct = Math.min(100, Math.max(1, Number(document.getElementById('q_alert_pct').value || 0)));
     const danger_pct0 = Math.min(100, Math.max(1, Number(document.getElementById('q_danger_pct').value || 0)));
