@@ -76,12 +76,8 @@ CTYPE="${CONTENT_TYPE:-}"
 
 REQ_TOKEN="${HTTP_X_AUTH_TOKEN:-}"
 if [ -z "$REQ_TOKEN" ]; then
-  if echo "$CTYPE" | grep -qi 'application/json'; then
-    REQ_TOKEN="$(json_get_str "$BODY" token)"
-  else
-    REQ_TOKEN="$(parse_form "$BODY" token || true)"
-    REQ_TOKEN="$(urldecode "${REQ_TOKEN:-}")"
-  fi
+  REQ_TOKEN="$(parse_form "$BODY" token || true)"
+  REQ_TOKEN="$(urldecode "${REQ_TOKEN:-}")"
 fi
 if [ -n "$API_TOKEN" ] && [ "$REQ_TOKEN" != "$API_TOKEN" ]; then
   reply '{"ok":false,"err":"unauthorized"}'
