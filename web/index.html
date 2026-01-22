@@ -7,47 +7,49 @@
 
   <style>
     :root{
-      --bg1:#070c16; --bg2:#0b1220;
-      --bgGlow1: rgba(78,161,255,.20);
-      --bgGlow2: rgba(124,92,255,.18);
+      --bg1:#060914; --bg2:#0b1120;
+      --bgGlow1: rgba(78,161,255,.26);
+      --bgGlow2: rgba(138,92,255,.20);
 
-      --cardA: rgba(255,255,255,.03);
-      --cardB: rgba(255,255,255,.015);
-      --cardBorder: rgba(255,255,255,.08);
+      --cardA: rgba(255,255,255,.05);
+      --cardB: rgba(255,255,255,.02);
+      --cardBorder: rgba(255,255,255,.10);
 
       --text:#e6eefc; --muted:#9fb0cc;
 
       --accent:#4ea1ff; --accent2:#7c5cff;
+      --neon:#3ee7ff;
       --good:#37d67a; --warn:#f5c542; --bad:#ff4d4f;
 
-      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --shadow: 0 18px 45px rgba(0,0,0,.40);
       --radius:16px;
 
       --preBg:#050914; --preText:#c9fbd7;
       --imgBorder: rgba(255,255,255,.10);
 
-      --axis: rgba(255,255,255,.20);
-      --grid: rgba(255,255,255,.08);
+      --axis: rgba(255,255,255,.24);
+      --grid: rgba(255,255,255,.10);
       --legend: #bcd0f5;
       --tooltipBg: rgba(20,25,35,.92);
       --tooltipBorder: rgba(255,255,255,.12);
     }
 
     [data-theme="light"]{
-      --bg1:#f7f9ff; --bg2:#eef3ff;
+      --bg1:#f7f9ff; --bg2:#edf2ff;
       --bgGlow1: rgba(78,161,255,.18);
       --bgGlow2: rgba(124,92,255,.14);
 
-      --cardA: rgba(255,255,255,.92);
-      --cardB: rgba(255,255,255,.80);
-      --cardBorder: rgba(20,30,55,.10);
+      --cardA: rgba(255,255,255,.95);
+      --cardB: rgba(255,255,255,.85);
+      --cardBorder: rgba(20,30,55,.12);
 
       --text:#111827; --muted:#52607a;
 
       --accent:#1677ff; --accent2:#7c5cff;
+      --neon:#11c9ff;
       --good:#16a34a; --warn:#d97706; --bad:#dc2626;
 
-      --shadow: 0 10px 26px rgba(17,24,39,.10);
+      --shadow: 0 16px 35px rgba(17,24,39,.12);
 
       --preBg:#0b1220; --preText:#c9fbd7;
       --imgBorder: rgba(20,30,55,.12);
@@ -65,23 +67,58 @@
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
       color:var(--text);
       background:
-        radial-gradient(1200px 600px at 10% 0%, var(--bgGlow1), transparent 55%),
-        radial-gradient(900px 500px at 90% 10%, var(--bgGlow2), transparent 55%),
+        radial-gradient(1200px 600px at 10% -10%, var(--bgGlow1), transparent 55%),
+        radial-gradient(1100px 520px at 95% 0%, var(--bgGlow2), transparent 60%),
         linear-gradient(180deg, var(--bg1), var(--bg2));
+      min-height:100vh;
+      position:relative;
+      overflow-x:hidden;
+    }
+    body::before{
+      content:"";
+      position:fixed;
+      inset:-20%;
+      background:
+        radial-gradient(320px 260px at 15% 20%, rgba(78,161,255,.18), transparent 60%),
+        radial-gradient(260px 220px at 85% 15%, rgba(124,92,255,.18), transparent 60%),
+        repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 120px),
+        repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 1px, transparent 1px 120px);
+      opacity:.6;
+      pointer-events:none;
+      animation: drift 18s linear infinite;
+      mix-blend-mode: screen;
+    }
+    body::after{
+      content:"";
+      position:fixed;
+      inset:0;
+      background: radial-gradient(600px 420px at 50% -10%, rgba(62,231,255,.15), transparent 60%);
+      pointer-events:none;
+      opacity:.55;
+      mix-blend-mode: screen;
     }
 
-    .container{max-width:1100px;margin:0 auto}
+    .container{max-width:1100px;margin:0 auto;position:relative;z-index:1}
     .topbar{
       display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;
       margin-bottom:18px;
     }
     .title{display:flex;gap:12px;align-items:center;}
     .logo{
-      width:44px;height:44px;border-radius:14px;
-      background: linear-gradient(135deg, rgba(78,161,255,.95), rgba(124,92,255,.95));
-      box-shadow: 0 12px 30px rgba(78,161,255,.20);
+      width:46px;height:46px;border-radius:16px;
+      background: linear-gradient(135deg, rgba(78,161,255,.98), rgba(124,92,255,.98));
+      box-shadow: 0 16px 36px rgba(78,161,255,.28), 0 0 22px rgba(62,231,255,.25);
       display:flex;align-items:center;justify-content:center;
       font-weight:900;color:white;
+      position:relative;
+      overflow:hidden;
+      animation: float 6s ease-in-out infinite;
+    }
+    .logo::after{
+      content:"";
+      position:absolute;inset:0;
+      background: linear-gradient(135deg, rgba(255,255,255,.35), transparent 60%);
+      opacity:.35;
     }
     h1{margin:0;font-size:20px;letter-spacing:.2px}
     .subtitle{margin-top:4px;color:var(--muted);font-size:13px}
@@ -89,8 +126,9 @@
     .status{
       display:flex;gap:10px;flex-wrap:wrap;align-items:center;
       padding:10px 12px;border:1px solid var(--cardBorder);border-radius:14px;
-      background: rgba(255,255,255,.06);
-      box-shadow: 0 12px 26px rgba(0,0,0,.10);
+      background: linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      box-shadow: 0 12px 26px rgba(0,0,0,.12);
+      backdrop-filter: blur(8px);
     }
     [data-theme="light"] .status{background: rgba(255,255,255,.65);}
 
@@ -115,6 +153,24 @@
       padding:16px;
       margin-bottom:16px;
       overflow:hidden;
+      position:relative;
+      transition: transform .2s ease, box-shadow .2s ease;
+      backdrop-filter: blur(10px);
+    }
+    .card::before{
+      content:"";
+      position:absolute;inset:0;
+      border-radius:inherit;
+      border:1px solid rgba(255,255,255,.08);
+      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      mask-composite: exclude;
+      -webkit-mask-composite: xor;
+      pointer-events:none;
+    }
+    .card:hover{
+      transform: translateY(-2px);
+      box-shadow: 0 22px 50px rgba(0,0,0,.45);
     }
     .cardhead{
       display:flex;align-items:center;justify-content:space-between;
@@ -141,7 +197,7 @@
     .seg button.active{
       color:#ffffff;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
-      box-shadow: 0 10px 22px rgba(78,161,255,.18);
+      box-shadow: 0 10px 22px rgba(78,161,255,.18), 0 0 18px rgba(62,231,255,.28);
     }
 
     select{
@@ -164,15 +220,24 @@
       border-radius:999px;
       font-size:12px;
       cursor:pointer;
+      transition: .2s ease;
     }
-    .linkbtn:hover{ background: rgba(255,255,255,.12); }
+    .linkbtn:hover{
+      background: rgba(255,255,255,.12);
+      box-shadow: 0 0 14px rgba(62,231,255,.25);
+    }
 
-    #chart{width:100%;height:440px;margin-top:8px}
+    #chart{
+      width:100%;height:440px;margin-top:8px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.08);
+      background: linear-gradient(180deg, rgba(255,255,255,.02), transparent 60%);
+    }
     .small{color:var(--muted);font-size:12px;margin-top:10px}
 
     pre{
       margin:0;
-      background: var(--preBg);
+      background: linear-gradient(180deg, rgba(5,9,20,.95), rgba(5,9,20,.75));
       border:1px solid var(--cardBorder);
       color: var(--preText);
       padding:14px;
@@ -192,7 +257,7 @@
       height:auto;
       border-radius:14px;
       border:1px solid var(--imgBorder);
-      box-shadow: 0 16px 35px rgba(0,0,0,.18);
+      box-shadow: 0 18px 40px rgba(0,0,0,.24);
       background: rgba(255,255,255,.04);
     }
 
@@ -220,6 +285,7 @@
       border-radius:16px;
       box-shadow: var(--shadow);
       padding:16px;
+      backdrop-filter: blur(12px);
     }
     .modal h3{margin:0 0 12px 0;font-size:14px}
     .field{margin:10px 0}
@@ -249,11 +315,22 @@
       border:0;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
       color:#fff;
-      box-shadow: 0 10px 22px rgba(78,161,255,.18);
+      box-shadow: 0 10px 22px rgba(78,161,255,.18), 0 0 20px rgba(62,231,255,.24);
     }
     .btn:hover{ background: rgba(255,255,255,.12); }
     .btn.primary:hover{ filter: brightness(1.05); }
     .tiny{color:var(--muted);font-size:12px;line-height:1.6}
+
+    @keyframes drift{
+      0%{ transform: translate3d(0,0,0) scale(1); }
+      50%{ transform: translate3d(-2%, -1%, 0) scale(1.02); }
+      100%{ transform: translate3d(0,0,0) scale(1); }
+    }
+    @keyframes float{
+      0%{ transform: translateY(0); }
+      50%{ transform: translateY(-4px); }
+      100%{ transform: translateY(0); }
+    }
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
