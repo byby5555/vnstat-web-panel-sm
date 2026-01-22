@@ -1,5 +1,8 @@
 # vnstat-web-panel
 
+
+简陋单机 vnstat+web 流量监控
+
 A lightweight VNStat web panel for Debian/Ubuntu using Lighttpd + CGI.
 
 ## 安装
