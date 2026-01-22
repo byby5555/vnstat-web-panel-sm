@@ -477,19 +477,54 @@
   <div class="modal" role="dialog" aria-modal="true">
     <h3>🚦 流量阈值告警（仅页面提示）</h3>
 
-    <div class="field">
-      <label>本月总额度（GB）</label>
-      <input id="q_quota_gb" type="number" min="1" step="1" />
-    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label>本月总额度（GB）</label>
+        <input id="q_quota_gb" type="number" min="1" step="1" />
+      </div>
 
-    <div class="field">
-      <label>告警阈值（%）</label>
-      <input id="q_alert_pct" type="number" min="1" max="100" step="1" />
-    </div>
+      <div class="field">
+        <label>告警阈值（%）</label>
+        <input id="q_alert_pct" type="number" min="1" max="100" step="1" />
+      </div>
 
-    <div class="field">
-      <label>危险阈值（%）</label>
-      <input id="q_danger_pct" type="number" min="1" max="100" step="1" />
+      <div class="field">
+        <label>危险阈值（%）</label>
+        <input id="q_danger_pct" type="number" min="1" max="100" step="1" />
+      </div>
+
+      <div class="field">
+        <label>每月流量起算日（1-31）</label>
+        <input id="q_month_start_day" type="number" min="1" max="31" step="1" />
+        <small>例如填 15 表示每月 15 号起算统计。</small>
+      </div>
+
+      <div class="field">
+        <label>自动关机（到达关机阈值）</label>
+        <div class="checkbox-row">
+          <input id="q_auto_shutdown" type="checkbox" />
+          <span>达到阈值自动关机</span>
+        </div>
+        <input id="q_shutdown_pct" type="number" min="1" max="100" step="1" />
+        <small>关机阈值百分比（建议高于危险阈值）。</small>
+      </div>
+
+      <div class="field">
+        <label>Telegram 通知</label>
+        <div class="checkbox-row">
+          <input id="q_tg_enabled" type="checkbox" />
+          <span>启用 Telegram Bot 告警/关机通知</span>
+        </div>
+        <input id="q_tg_bot_token" type="password" placeholder="Bot Token" />
+        <input id="q_tg_chat_id" type="text" placeholder="Chat ID" />
+        <small>填写 Bot Token 与 Chat ID 后会推送告警/关机信息。</small>
+      </div>
+
+      <div class="field full">
+        <label>保存需要 Token</label>
+        <input id="q_token" type="password" placeholder="安装时生成的 Token" />
+        <small>所有阈值修改必须填写 Token（/root/vnstat-web-token.txt）。</small>
+      </div>
     </div>
 
     <div class="field">
