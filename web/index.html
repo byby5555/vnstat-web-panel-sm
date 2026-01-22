@@ -302,8 +302,6 @@
       box-shadow: var(--shadow);
       padding:16px;
       backdrop-filter: blur(16px);
-      max-height: min(80vh, 760px);
-      overflow:auto;
     }
     .modal h3{margin:0 0 12px 0;font-size:14px}
     .field{margin:10px 0}
@@ -328,30 +326,6 @@
     }
     .field .checkbox-row input{ accent-color: var(--accent); }
     .field small{display:block;margin-top:6px;color:var(--muted);font-size:11px}
-    .column-title{
-      font-size:13px;
-      font-weight:600;
-      color:var(--text);
-      margin-bottom:4px;
-    }
-    .field input.error{
-      border-color: var(--bad);
-      box-shadow: 0 0 0 2px rgba(248,113,113,.2);
-    }
-    .form-columns{
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap:16px;
-    }
-    .form-columns .column{
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-    }
-    .form-columns .field{margin:0}
-    @media (max-width:720px){
-      .form-columns{grid-template-columns: 1fr;}
-    }
     .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
     .btn{
       border:1px solid var(--cardBorder);
@@ -504,60 +478,91 @@
   <div class="modal" role="dialog" aria-modal="true">
     <h3>🚦 流量阈值告警（仅页面提示）</h3>
 
-    <div class="form-columns">
-      <div class="column">
-        <div class="column-title">阈值参数</div>
-        <div class="field">
-          <label>本月总额度（GB）</label>
-          <input id="q_quota_gb" type="number" min="1" step="1" />
-        </div>
-
-        <div class="field">
-          <label>告警阈值（%）</label>
-          <input id="q_alert_pct" type="number" min="1" max="100" step="1" />
-        </div>
-
-        <div class="field">
-          <label>危险阈值（%）</label>
-          <input id="q_danger_pct" type="number" min="1" max="100" step="1" />
-        </div>
-
-        <div class="field">
-          <label>每月流量起算日（1-31）</label>
-          <input id="q_month_start_day" type="number" min="1" max="31" step="1" />
-          <small>例如填 15 表示每月 15 号起算统计。</small>
-        </div>
-
-        <div class="field">
-          <label>自动关机（到达关机阈值）</label>
-          <div class="checkbox-row">
-            <input id="q_auto_shutdown" type="checkbox" />
-            <span>达到阈值自动关机</span>
-          </div>
-          <input id="q_shutdown_pct" type="number" min="1" max="100" step="1" />
-          <small>关机阈值百分比（建议高于危险阈值）。</small>
-        </div>
+    <div class="form-grid">
+      <div class="field">
+        <label>本月总额度（GB）</label>
+        <input id="q_quota_gb" type="number" min="1" step="1" />
       </div>
 
-      <div class="column">
-        <div class="column-title">通知与认证</div>
-        <div class="field">
-          <label>Telegram 通知</label>
-          <div class="checkbox-row">
-            <input id="q_tg_enabled" type="checkbox" />
-            <span>启用 Telegram Bot 告警/关机通知</span>
-          </div>
-          <input id="q_tg_bot_token" type="password" placeholder="Bot Token" />
-          <input id="q_tg_chat_id" type="text" placeholder="Chat ID" />
-          <small>填写 Bot Token 与 Chat ID 后会推送告警/关机信息。</small>
-        </div>
-
-        <div class="field">
-          <label>保存需要 Token</label>
-          <input id="q_token" type="password" placeholder="安装时生成的 Token" />
-          <small>未通过 Token 认证将无法保存。</small>
-        </div>
+      <div class="field">
+        <label>告警阈值（%）</label>
+        <input id="q_alert_pct" type="number" min="1" max="100" step="1" />
       </div>
+
+      <div class="field">
+        <label>危险阈值（%）</label>
+        <input id="q_danger_pct" type="number" min="1" max="100" step="1" />
+      </div>
+
+      <div class="field">
+        <label>每月流量起算日（1-31）</label>
+        <input id="q_month_start_day" type="number" min="1" max="31" step="1" />
+        <small>例如填 15 表示每月 15 号起算统计。</small>
+      </div>
+
+      <div class="field">
+        <label>自动关机（到达关机阈值）</label>
+        <div class="checkbox-row">
+          <input id="q_auto_shutdown" type="checkbox" />
+          <span>达到阈值自动关机</span>
+        </div>
+        <input id="q_shutdown_pct" type="number" min="1" max="100" step="1" />
+        <small>关机阈值百分比（建议高于危险阈值）。</small>
+      </div>
+
+      <div class="field">
+        <label>Telegram 通知</label>
+        <div class="checkbox-row">
+          <input id="q_tg_enabled" type="checkbox" />
+          <span>启用 Telegram Bot 告警/关机通知</span>
+        </div>
+        <input id="q_tg_bot_token" type="password" placeholder="Bot Token" />
+        <input id="q_tg_chat_id" type="text" placeholder="Chat ID" />
+        <small>填写 Bot Token 与 Chat ID 后会推送告警/关机信息。</small>
+      </div>
+
+      <div class="field full">
+        <label>保存需要 Token</label>
+        <input id="q_token" type="password" placeholder="安装时生成的 Token" />
+        <small>所有阈值修改必须填写 Token（/root/vnstat-web-token.txt）。</small>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>每月流量起算日（1-31）</label>
+      <input id="q_month_start_day" type="number" min="1" max="31" step="1" />
+      <small>例如填 15 表示每月 15 号起算统计。</small>
+    </div>
+
+    <div class="field">
+      <label>自动关机（到达关机阈值）</label>
+      <div class="checkbox-row">
+        <input id="q_auto_shutdown" type="checkbox" />
+        <span>达到阈值自动关机</span>
+      </div>
+      <input id="q_shutdown_pct" type="number" min="1" max="100" step="1" />
+      <small>关机阈值百分比（建议高于危险阈值）。</small>
+    </div>
+
+    <div class="field">
+      <label>Telegram 通知</label>
+      <div class="checkbox-row">
+        <input id="q_tg_enabled" type="checkbox" />
+        <span>启用 Telegram Bot 告警/关机通知</span>
+      </div>
+      <input id="q_tg_bot_token" type="password" placeholder="Bot Token" />
+      <input id="q_tg_chat_id" type="text" placeholder="Chat ID" />
+      <small>填写 Bot Token 与 Chat ID 后会推送告警/关机信息。</small>
+    </div>
+
+    <div class="field">
+      <label>保存到服务器（需要 Token）</label>
+      <div class="checkbox-row">
+        <input id="q_save_server" type="checkbox" />
+        <span>同步保存到 /etc/vnstat-web/quota.json</span>
+      </div>
+      <input id="q_token" type="password" placeholder="安装时生成的 Token" />
+      <small>Token 安装时显示并写入 /root/vnstat-web-token.txt。</small>
     </div>
 
     <div class="tiny" id="quotaHint">
@@ -1047,20 +1052,17 @@
   }
 
   async function saveQuotaServer(payload, token){
-    const body = { ...payload, token };
     const r = await fetch(QUOTA_API, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Auth-Token': token
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(payload)
     });
     if (!r.ok) throw new Error('保存失败 HTTP ' + r.status);
     const j = await r.json().catch(() => ({}));
-    if (!j.ok) {
-      if (j.err === 'unauthorized') throw new Error('Token 无效或缺失');
-      throw new Error(j.err || '保存失败');
-    }
+    if (!j.ok) throw new Error(j.err || '保存失败');
     return j;
   }
 
@@ -1138,8 +1140,8 @@
       document.getElementById('q_tg_bot_token').value = s.tg_bot_token || '';
       document.getElementById('q_tg_chat_id').value = s.tg_chat_id || '';
       document.getElementById('q_token').value = loadQuotaToken();
-      hint.innerHTML =
-        '保存后：<b>黄灯=告警</b>，<b>红灯=危险</b>。必须使用 Token 保存到服务器。';
+      document.getElementById('quotaHint').innerHTML =
+        '保存后：<b>黄灯=告警</b>，<b>红灯=危险</b>。可选同步到服务器（需 Token）。';
     }).catch(()=>{
       hint.textContent =
         '读取失败：未找到 quota.json 或浏览器设置';
@@ -1167,8 +1169,8 @@
     const tg_enabled = document.getElementById('q_tg_enabled').checked ? 1 : 0;
     const tg_bot_token = document.getElementById('q_tg_bot_token').value.trim();
     const tg_chat_id = document.getElementById('q_tg_chat_id').value.trim();
+    const save_server = document.getElementById('q_save_server').checked;
     const token = document.getElementById('q_token').value.trim();
-    document.getElementById('q_token').classList.remove('error');
 
     const payload = {
       quota_gb,
@@ -1182,23 +1184,19 @@
       tg_chat_id
     };
 
-    if (!token) {
-      hint.textContent = '保存失败：必须填写 Token。';
-      hint.classList.add('error');
-      document.getElementById('q_token').classList.add('error');
-      return;
-    }
+    saveQuotaLocal(payload);
+    saveQuotaToken(token);
 
-    try{
-      await saveQuotaServer(payload, token);
-      saveQuotaLocal(payload);
-      saveQuotaToken(token);
+    if (save_server) {
+      try{
+        await saveQuotaServer(payload, token);
+        closeQuotaModal();
+      }catch(e){
+        document.getElementById('quotaHint').textContent = '保存到服务器失败：' + (e.message || e);
+        return;
+      }
+    } else {
       closeQuotaModal();
-    }catch(e){
-      hint.textContent = '保存到服务器失败：' + (e.message || e);
-      hint.classList.add('error');
-      document.getElementById('q_token').classList.add('error');
-      return;
     }
     await refreshQuotaAlarm();
   };
