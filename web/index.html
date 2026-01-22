@@ -7,64 +7,68 @@
 
   <style>
     :root{
-      --bg1:#060914; --bg2:#0b1120;
-      --bgGlow1: rgba(78,161,255,.26);
-      --bgGlow2: rgba(138,92,255,.20);
+      --bg1:#0b0f1b; --bg2:#111827;
+      --bgGlow1: rgba(96,165,250,.25);
+      --bgGlow2: rgba(167,139,250,.22);
 
-      --cardA: rgba(255,255,255,.05);
-      --cardB: rgba(255,255,255,.02);
-      --cardBorder: rgba(255,255,255,.10);
+      --cardA: rgba(255,255,255,.08);
+      --cardB: rgba(255,255,255,.04);
+      --cardBorder: rgba(255,255,255,.12);
+      --cardHighlight: rgba(255,255,255,.12);
 
-      --text:#e6eefc; --muted:#9fb0cc;
+      --text:#eef2ff; --muted:#94a3b8;
 
-      --accent:#4ea1ff; --accent2:#7c5cff;
-      --neon:#3ee7ff;
-      --good:#37d67a; --warn:#f5c542; --bad:#ff4d4f;
+      --accent:#60a5fa; --accent2:#8b5cf6;
+      --neon:#38bdf8;
+      --good:#34d399; --warn:#fbbf24; --bad:#f87171;
 
-      --shadow: 0 18px 45px rgba(0,0,0,.40);
-      --radius:16px;
+      --shadow: 0 22px 50px rgba(2,6,23,.55);
+      --shadowSoft: 0 8px 20px rgba(2,6,23,.35);
+      --radius:18px;
 
-      --preBg:#050914; --preText:#c9fbd7;
-      --imgBorder: rgba(255,255,255,.10);
+      --preBg:#0b1120; --preText:#d1fae5;
+      --imgBorder: rgba(255,255,255,.14);
 
-      --axis: rgba(255,255,255,.24);
-      --grid: rgba(255,255,255,.10);
-      --legend: #bcd0f5;
-      --tooltipBg: rgba(20,25,35,.92);
-      --tooltipBorder: rgba(255,255,255,.12);
+      --axis: rgba(226,232,240,.28);
+      --grid: rgba(226,232,240,.12);
+      --legend: #dbeafe;
+      --tooltipBg: rgba(15,23,42,.92);
+      --tooltipBorder: rgba(255,255,255,.14);
     }
 
     [data-theme="light"]{
-      --bg1:#f7f9ff; --bg2:#edf2ff;
-      --bgGlow1: rgba(78,161,255,.18);
-      --bgGlow2: rgba(124,92,255,.14);
+      --bg1:#f3f5fb; --bg2:#e8effc;
+      --bgGlow1: rgba(59,130,246,.18);
+      --bgGlow2: rgba(139,92,246,.16);
 
-      --cardA: rgba(255,255,255,.95);
-      --cardB: rgba(255,255,255,.85);
-      --cardBorder: rgba(20,30,55,.12);
+      --cardA: rgba(255,255,255,.92);
+      --cardB: rgba(255,255,255,.75);
+      --cardBorder: rgba(15,23,42,.10);
+      --cardHighlight: rgba(15,23,42,.06);
 
-      --text:#111827; --muted:#52607a;
+      --text:#0f172a; --muted:#64748b;
 
-      --accent:#1677ff; --accent2:#7c5cff;
-      --neon:#11c9ff;
+      --accent:#2563eb; --accent2:#7c3aed;
+      --neon:#0ea5e9;
       --good:#16a34a; --warn:#d97706; --bad:#dc2626;
 
-      --shadow: 0 16px 35px rgba(17,24,39,.12);
+      --shadow: 0 16px 40px rgba(15,23,42,.12);
+      --shadowSoft: 0 8px 18px rgba(15,23,42,.10);
 
-      --preBg:#0b1220; --preText:#c9fbd7;
-      --imgBorder: rgba(20,30,55,.12);
+      --preBg:#0f172a; --preText:#d1fae5;
+      --imgBorder: rgba(15,23,42,.12);
 
-      --axis: rgba(20,30,55,.22);
-      --grid: rgba(20,30,55,.10);
-      --legend: #2b3a55;
+      --axis: rgba(15,23,42,.25);
+      --grid: rgba(15,23,42,.10);
+      --legend: #1f2a44;
       --tooltipBg: rgba(255,255,255,.96);
-      --tooltipBorder: rgba(20,30,55,.14);
+      --tooltipBorder: rgba(15,23,42,.12);
     }
 
     *{box-sizing:border-box}
     body{
       margin:0; padding:24px;
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      font-family: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
       color:var(--text);
       background:
         radial-gradient(1200px 600px at 10% -10%, var(--bgGlow1), transparent 55%),
@@ -73,15 +77,16 @@
       min-height:100vh;
       position:relative;
       overflow-x:hidden;
+      -webkit-font-smoothing: antialiased;
     }
     body::before{
       content:"";
       position:fixed;
       inset:-20%;
       background:
-        radial-gradient(320px 260px at 15% 20%, rgba(78,161,255,.18), transparent 60%),
-        radial-gradient(260px 220px at 85% 15%, rgba(124,92,255,.18), transparent 60%),
-        repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 120px),
+        radial-gradient(320px 260px at 15% 20%, rgba(96,165,250,.20), transparent 60%),
+        radial-gradient(260px 220px at 85% 15%, rgba(139,92,246,.18), transparent 60%),
+        repeating-linear-gradient(90deg, rgba(255,255,255,.04) 0 1px, transparent 1px 120px),
         repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 1px, transparent 1px 120px);
       opacity:.6;
       pointer-events:none;
@@ -107,8 +112,8 @@
     .title-meta{display:flex;flex-direction:column;gap:6px}
     .logo{
       width:46px;height:46px;border-radius:16px;
-      background: linear-gradient(135deg, rgba(78,161,255,.98), rgba(124,92,255,.98));
-      box-shadow: 0 16px 36px rgba(78,161,255,.28), 0 0 22px rgba(62,231,255,.25);
+      background: linear-gradient(135deg, rgba(96,165,250,.98), rgba(139,92,246,.98));
+      box-shadow: 0 16px 34px rgba(59,130,246,.28), 0 0 22px rgba(56,189,248,.25);
       display:flex;align-items:center;justify-content:center;
       font-weight:900;color:white;
       position:relative;
@@ -126,27 +131,27 @@
     .badge{
       display:inline-flex;align-items:center;gap:6px;
       padding:4px 10px;border-radius:999px;
-      background: linear-gradient(135deg, rgba(78,161,255,.22), rgba(124,92,255,.18));
+      background: linear-gradient(135deg, rgba(96,165,250,.22), rgba(139,92,246,.18));
       border:1px solid rgba(255,255,255,.14);
       font-size:11px;color:var(--text);
       letter-spacing:.2px;
       width:fit-content;
-      box-shadow: 0 10px 20px rgba(78,161,255,.18), 0 0 16px rgba(62,231,255,.20);
+      box-shadow: 0 10px 20px rgba(59,130,246,.18), 0 0 16px rgba(56,189,248,.20);
     }
 
     .status{
       display:flex;gap:10px;flex-wrap:wrap;align-items:center;
       padding:10px 12px;border:1px solid var(--cardBorder);border-radius:14px;
-      background: linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
-      box-shadow: 0 12px 26px rgba(0,0,0,.12);
-      backdrop-filter: blur(8px);
+      background: linear-gradient(135deg, rgba(255,255,255,.10), rgba(255,255,255,.02));
+      box-shadow: var(--shadowSoft);
+      backdrop-filter: blur(14px);
     }
     [data-theme="light"] .status{background: rgba(255,255,255,.65);}
 
     .pill{
       display:flex;gap:8px;align-items:center;
       padding:6px 10px;border-radius:999px;
-      background: rgba(255,255,255,.08);
+      background: rgba(255,255,255,.10);
       border:1px solid var(--cardBorder);
       font-size:12px;color:var(--muted);
       white-space:nowrap;
@@ -166,13 +171,13 @@
       overflow:hidden;
       position:relative;
       transition: transform .2s ease, box-shadow .2s ease;
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(16px);
     }
     .card::before{
       content:"";
       position:absolute;inset:0;
       border-radius:inherit;
-      border:1px solid rgba(255,255,255,.08);
+      border:1px solid var(--cardHighlight);
       mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
       -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
       mask-composite: exclude;
@@ -181,7 +186,7 @@
     }
     .card:hover{
       transform: translateY(-2px);
-      box-shadow: 0 22px 50px rgba(0,0,0,.45);
+      box-shadow: 0 26px 60px rgba(2,6,23,.55);
     }
     .cardhead{
       display:flex;align-items:center;justify-content:space-between;
@@ -193,7 +198,7 @@
     .seg{
       display:inline-flex;
       border:1px solid var(--cardBorder);
-      background: rgba(255,255,255,.06);
+      background: rgba(255,255,255,.08);
       border-radius:999px;
       padding:4px;
       gap:4px;
@@ -208,12 +213,12 @@
     .seg button.active{
       color:#ffffff;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
-      box-shadow: 0 10px 22px rgba(78,161,255,.18), 0 0 18px rgba(62,231,255,.28);
+      box-shadow: 0 10px 22px rgba(59,130,246,.18), 0 0 18px rgba(56,189,248,.28);
     }
 
     select{
       border:1px solid var(--cardBorder);
-      background: rgba(255,255,255,.08);
+      background: rgba(255,255,255,.10);
       color: var(--text);
       padding:8px 12px;
       border-radius:999px;
@@ -225,7 +230,7 @@
 
     .linkbtn{
       border:1px solid var(--cardBorder);
-      background: rgba(255,255,255,.08);
+      background: rgba(255,255,255,.10);
       color: var(--text);
       padding:8px 12px;
       border-radius:999px;
@@ -235,20 +240,20 @@
     }
     .linkbtn:hover{
       background: rgba(255,255,255,.12);
-      box-shadow: 0 0 14px rgba(62,231,255,.25);
+      box-shadow: 0 0 14px rgba(56,189,248,.25);
     }
 
     #chart{
       width:100%;height:440px;margin-top:8px;
       border-radius:14px;
-      border:1px solid rgba(255,255,255,.08);
-      background: linear-gradient(180deg, rgba(255,255,255,.02), transparent 60%);
+      border:1px solid rgba(255,255,255,.10);
+      background: linear-gradient(180deg, rgba(255,255,255,.04), transparent 60%);
     }
     .small{color:var(--muted);font-size:12px;margin-top:10px}
 
     pre{
       margin:0;
-      background: linear-gradient(180deg, rgba(5,9,20,.95), rgba(5,9,20,.75));
+      background: linear-gradient(180deg, rgba(15,23,42,.95), rgba(15,23,42,.75));
       border:1px solid var(--cardBorder);
       color: var(--preText);
       padding:14px;
@@ -268,7 +273,7 @@
       height:auto;
       border-radius:14px;
       border:1px solid var(--imgBorder);
-      box-shadow: 0 18px 40px rgba(0,0,0,.24);
+      box-shadow: var(--shadowSoft);
       background: rgba(255,255,255,.04);
     }
 
@@ -296,7 +301,7 @@
       border-radius:16px;
       box-shadow: var(--shadow);
       padding:16px;
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(16px);
     }
     .modal h3{margin:0 0 12px 0;font-size:14px}
     .field{margin:10px 0}
@@ -304,7 +309,7 @@
     .field input{
       width:100%;
       border:1px solid var(--cardBorder);
-      background: rgba(255,255,255,.06);
+      background: rgba(255,255,255,.10);
       color: var(--text);
       padding:10px 12px;
       border-radius:12px;
@@ -312,10 +317,19 @@
       font-size:13px;
     }
     [data-theme="light"] .field input{ background: rgba(255,255,255,.75); }
+    .field .checkbox-row{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:12px;
+      color:var(--muted);
+    }
+    .field .checkbox-row input{ accent-color: var(--accent); }
+    .field small{display:block;margin-top:6px;color:var(--muted);font-size:11px}
     .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
     .btn{
       border:1px solid var(--cardBorder);
-      background: rgba(255,255,255,.08);
+      background: rgba(255,255,255,.10);
       color: var(--text);
       padding:8px 12px;
       border-radius:999px;
@@ -326,7 +340,7 @@
       border:0;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
       color:#fff;
-      box-shadow: 0 10px 22px rgba(78,161,255,.18), 0 0 20px rgba(62,231,255,.24);
+      box-shadow: 0 10px 22px rgba(59,130,246,.18), 0 0 20px rgba(56,189,248,.24);
     }
     .btn:hover{ background: rgba(255,255,255,.12); }
     .btn.primary:hover{ filter: brightness(1.05); }
@@ -478,6 +492,39 @@
       <input id="q_danger_pct" type="number" min="1" max="100" step="1" />
     </div>
 
+    <div class="field">
+      <label>每月流量起算日（1-31）</label>
+      <input id="q_month_start_day" type="number" min="1" max="31" step="1" />
+      <small>例如填 15 表示每月 15 号起算统计。</small>
+    </div>
+
+    <div class="field">
+      <label>自动关机（到达关机阈值）</label>
+      <div class="checkbox-row">
+        <input id="q_auto_shutdown" type="checkbox" />
+        <span>达到阈值自动关机</span>
+      </div>
+      <input id="q_shutdown_pct" type="number" min="1" max="100" step="1" />
+      <small>关机阈值百分比（建议高于危险阈值）。</small>
+    </div>
+
+    <div class="field">
+      <label>Telegram 通知</label>
+      <div class="checkbox-row">
+        <input id="q_tg_enabled" type="checkbox" />
+        <span>启用 Telegram Bot 告警/关机通知</span>
+      </div>
+      <input id="q_tg_bot_token" type="password" placeholder="Bot Token" />
+      <input id="q_tg_chat_id" type="text" placeholder="Chat ID" />
+      <small>填写 Bot Token 与 Chat ID 后会推送告警/关机信息。</small>
+    </div>
+
+    <div class="field">
+      <label>保存需要 Token</label>
+      <input id="q_token" type="password" placeholder="安装时生成的 Token" />
+      <small>所有阈值修改必须填写 Token（/root/vnstat-web-token.txt）。</small>
+    </div>
+
     <div class="tiny" id="quotaHint">
       保存后：<b>黄灯=告警</b>，<b>红灯=危险</b>。默认保存到浏览器本地。
     </div>
@@ -494,7 +541,9 @@
   const THEME_KEY = "vnstat_theme_pref";
 
   const QUOTA_URL = "quota.json";
+  const QUOTA_API = "cgi-bin/vnstat-web-config.cgi";
   const QUOTA_LOCAL_KEY = "vnstat_quota_settings";
+  const QUOTA_TOKEN_KEY = "vnstat_quota_token";
 
   let view = 'traffic'; // traffic | rate
   let mode = 'hour';    // fivemin | hour | day | month
@@ -867,6 +916,37 @@
     return null;
   }
 
+  function getPeriodTotalBytes(vn, startDay){
+    const iface = pickInterface(vn);
+    if(!iface || !iface.traffic) return null;
+    updateIfaceLabel(iface);
+
+    const dayArr = iface.traffic.day || iface.traffic.days || null;
+    const start = Number(startDay) || 1;
+    if(!Array.isArray(dayArr) || !dayArr.length){
+      return getMonthTotalBytes(vn);
+    }
+
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth(), start);
+    if (now.getDate() < start) {
+      startDate.setMonth(startDate.getMonth() - 1);
+    }
+    const startKey = startDate.getFullYear() * 10000 + (startDate.getMonth() + 1) * 100 + startDate.getDate();
+
+    let total = 0;
+    for (const item of dayArr) {
+      const d = item.date || {};
+      const key = (Number(d.year) || 0) * 10000 + (Number(d.month) || 0) * 100 + (Number(d.day) || 0);
+      if (key >= startKey) {
+        const rx = item.rx ?? item.rx_bytes ?? 0;
+        const tx = item.tx ?? item.tx_bytes ?? 0;
+        total += (Number(rx) || 0) + (Number(tx) || 0);
+      }
+    }
+    return total || 0;
+  }
+
   function readQuotaLocal(){
     try{
       const raw = localStorage.getItem(QUOTA_LOCAL_KEY);
@@ -879,11 +959,17 @@
     }
   }
 
-  function saveQuotaLocal(quota_gb, alert_pct, danger_pct){
+  function saveQuotaLocal(settings){
     const payload = {
-      quota_gb: Number(quota_gb),
-      alert_pct: Number(alert_pct),
-      danger_pct: Number(danger_pct),
+      quota_gb: Number(settings.quota_gb),
+      alert_pct: Number(settings.alert_pct),
+      danger_pct: Number(settings.danger_pct),
+      auto_shutdown: Number(settings.auto_shutdown) ? 1 : 0,
+      shutdown_pct: Number(settings.shutdown_pct),
+      month_start_day: Number(settings.month_start_day),
+      tg_enabled: Number(settings.tg_enabled) ? 1 : 0,
+      tg_bot_token: settings.tg_bot_token || "",
+      tg_chat_id: settings.tg_chat_id || "",
       saved_at: new Date().toISOString()
     };
     localStorage.setItem(QUOTA_LOCAL_KEY, JSON.stringify(payload));
@@ -902,10 +988,48 @@
     return await fetchQuotaFile();
   }
 
+  function loadQuotaToken(){
+    return localStorage.getItem(QUOTA_TOKEN_KEY) || '';
+  }
+
+  function saveQuotaToken(token){
+    localStorage.setItem(QUOTA_TOKEN_KEY, token);
+  }
+
+  function normalizeQuotaSettings(raw){
+    const s = raw || {};
+    return {
+      quota_gb: Number(s.quota_gb) || 1024,
+      alert_pct: Number(s.alert_pct) || 90,
+      danger_pct: Number(s.danger_pct) || 100,
+      auto_shutdown: Number(s.auto_shutdown) ? 1 : 0,
+      shutdown_pct: Number(s.shutdown_pct) || 100,
+      month_start_day: Number(s.month_start_day) || 1,
+      tg_enabled: Number(s.tg_enabled) ? 1 : 0,
+      tg_bot_token: s.tg_bot_token || "",
+      tg_chat_id: s.tg_chat_id || ""
+    };
+  }
+
+  async function saveQuotaServer(payload, token){
+    const r = await fetch(QUOTA_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Auth-Token': token
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!r.ok) throw new Error('保存失败 HTTP ' + r.status);
+    const j = await r.json().catch(() => ({}));
+    if (!j.ok) throw new Error(j.err || '保存失败');
+    return j;
+  }
+
   async function refreshQuotaAlarm(){
     let settings;
     try{
-      settings = await loadQuotaSettings();
+      settings = normalizeQuotaSettings(await loadQuotaSettings());
     }catch(e){
       document.getElementById('monthQuota').textContent = '-';
       document.getElementById('monthUsage').textContent = '阈值读取失败';
@@ -916,6 +1040,7 @@
     const quotaGb = Number(settings.quota_gb)||1024;
     const alertPct = Number(settings.alert_pct)||90;
     const dangerPct = Number(settings.danger_pct)||100;
+    const monthStartDay = Number(settings.month_start_day)||1;
 
     document.getElementById('monthQuota').textContent = quotaGb + 'GB';
 
@@ -924,7 +1049,7 @@
       if(!r.ok) throw new Error('vnstat.json HTTP ' + r.status);
       const vn = await r.json();
 
-      const totalBytes = getMonthTotalBytes(vn);
+      const totalBytes = getPeriodTotalBytes(vn, monthStartDay);
       if(totalBytes == null){
         document.getElementById('monthUsage').textContent = '无本月数据';
         document.getElementById('monthPct').textContent = '-';
@@ -947,7 +1072,7 @@
       }
 
       document.getElementById('quotaPill').title =
-        `已用 ${usedGB.toFixed(2)}GB / ${quotaGb}GB（${pct.toFixed(1)}%） 告警>=${alertPct}% 危险>=${dangerPct}%`;
+        `已用 ${usedGB.toFixed(2)}GB / ${quotaGb}GB（${pct.toFixed(1)}%） 起算日=${monthStartDay}号 告警>=${alertPct}% 危险>=${dangerPct}%`;
 
     }catch(e){
       document.getElementById('monthUsage').textContent = '读取失败';
@@ -960,12 +1085,20 @@
     document.getElementById('quotaHint').textContent = '读取设置中...';
     document.getElementById('quotaMask').style.display = 'flex';
 
-    loadQuotaSettings().then(s=>{
+    loadQuotaSettings().then(raw=>{
+      const s = normalizeQuotaSettings(raw);
       document.getElementById('q_quota_gb').value = Number(s.quota_gb)||1024;
       document.getElementById('q_alert_pct').value = Number(s.alert_pct)||90;
       document.getElementById('q_danger_pct').value = Number(s.danger_pct)||100;
+      document.getElementById('q_month_start_day').value = Number(s.month_start_day)||1;
+      document.getElementById('q_auto_shutdown').checked = Number(s.auto_shutdown) === 1;
+      document.getElementById('q_shutdown_pct').value = Number(s.shutdown_pct)||100;
+      document.getElementById('q_tg_enabled').checked = Number(s.tg_enabled) === 1;
+      document.getElementById('q_tg_bot_token').value = s.tg_bot_token || '';
+      document.getElementById('q_tg_chat_id').value = s.tg_chat_id || '';
+      document.getElementById('q_token').value = loadQuotaToken();
       document.getElementById('quotaHint').innerHTML =
-        '保存后：<b>黄灯=告警</b>，<b>红灯=危险</b>。默认保存到浏览器本地（如需全局共享，请维护 quota.json）。';
+        '保存后：<b>黄灯=告警</b>，<b>红灯=危险</b>。所有修改必须使用 Token 保存到服务器。';
     }).catch(()=>{
       document.getElementById('quotaHint').textContent =
         '读取失败：未找到 quota.json 或浏览器设置';
@@ -984,9 +1117,40 @@
     const alert_pct = Math.min(100, Math.max(1, Number(document.getElementById('q_alert_pct').value || 0)));
     const danger_pct0 = Math.min(100, Math.max(1, Number(document.getElementById('q_danger_pct').value || 0)));
     const danger_pct = Math.max(danger_pct0, alert_pct);
+    const month_start_day = Math.min(31, Math.max(1, Number(document.getElementById('q_month_start_day').value || 1)));
+    const auto_shutdown = document.getElementById('q_auto_shutdown').checked ? 1 : 0;
+    const shutdown_pct = Math.min(100, Math.max(1, Number(document.getElementById('q_shutdown_pct').value || 100)));
+    const tg_enabled = document.getElementById('q_tg_enabled').checked ? 1 : 0;
+    const tg_bot_token = document.getElementById('q_tg_bot_token').value.trim();
+    const tg_chat_id = document.getElementById('q_tg_chat_id').value.trim();
+    const token = document.getElementById('q_token').value.trim();
 
-    saveQuotaLocal(quota_gb, alert_pct, danger_pct);
-    closeQuotaModal();
+    const payload = {
+      quota_gb,
+      alert_pct,
+      danger_pct,
+      auto_shutdown,
+      shutdown_pct,
+      month_start_day,
+      tg_enabled,
+      tg_bot_token,
+      tg_chat_id
+    };
+
+    if (!token) {
+      document.getElementById('quotaHint').textContent = '保存失败：必须填写 Token。';
+      return;
+    }
+
+    try{
+      await saveQuotaServer(payload, token);
+      saveQuotaLocal(payload);
+      saveQuotaToken(token);
+      closeQuotaModal();
+    }catch(e){
+      document.getElementById('quotaHint').textContent = '保存到服务器失败：' + (e.message || e);
+      return;
+    }
     await refreshQuotaAlarm();
   };
 
