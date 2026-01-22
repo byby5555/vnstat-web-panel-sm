@@ -71,6 +71,15 @@ detect_iface() {
 }
 
 IFACE_DETECTED="$(detect_iface || true)"
+TOKEN_FILE="/root/vnstat-web-token.txt"
+if command -v openssl >/dev/null 2>&1; then
+  QUOTA_TOKEN="$(openssl rand -hex 16)"
+else
+  QUOTA_TOKEN="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+fi
+umask 077
+printf "%s\n" "$QUOTA_TOKEN" > "$TOKEN_FILE"
+
 cat > /etc/vnstat-web.conf <<EOF
 IFACE=${IFACE_DETECTED:-eth0}
 WEB_ROOT=/var/www/vnstat-web
@@ -80,6 +89,13 @@ FIVE_MIN_POINTS=288
 QUOTA_GB=1024
 ALERT_PCT=90
 DANGER_PCT=100
+AUTO_SHUTDOWN=0
+SHUTDOWN_PCT=100
+MONTH_START_DAY=1
+TG_ENABLED=0
+TG_BOT_TOKEN=
+TG_CHAT_ID=
+QUOTA_TOKEN=${QUOTA_TOKEN}
 EOF
 
 log "安装并启用 lighttpd /vnstat/ alias..."
@@ -114,6 +130,9 @@ systemctl restart lighttpd
 log "安装 vnstat-web-update..."
 install -m 755 "$BASE_DIR/scripts/vnstat-web-update.sh" /usr/local/bin/vnstat-web-update.sh
 
+log "安装 vnstat-quota-check..."
+install -m 755 "$BASE_DIR/scripts/vnstat-quota-check.sh" /usr/local/bin/vnstat-quota-check.sh
+
 log "生成初始数据文件..."
 if /usr/local/bin/vnstat-web-update.sh; then
   ok "初始数据文件已生成"
@@ -129,6 +148,9 @@ if [[ -d "$BASE_DIR/systemd" ]]; then
 fi
 
 ok "安装完成"
+echo
+echo "阈值设置 Token（用于保存到服务器）：${QUOTA_TOKEN}"
+echo "Token 已保存：${TOKEN_FILE}"
 echo
 echo "访问：http://<你的IP>:${PORT}/ （跳转到 /vnstat/）或 http://<你的IP>:${PORT}/vnstat/"
 echo "访问：http://<你的IP>:${PORT}/ （与 /vnstat/ 同一页面）或 http://<你的IP>:${PORT}/vnstat/"
