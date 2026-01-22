@@ -520,9 +520,13 @@
     </div>
 
     <div class="field">
-      <label>保存需要 Token</label>
+      <label>保存到服务器（需要 Token）</label>
+      <div class="checkbox-row">
+        <input id="q_save_server" type="checkbox" />
+        <span>同步保存到 /etc/vnstat-web/quota.json</span>
+      </div>
       <input id="q_token" type="password" placeholder="安装时生成的 Token" />
-      <small>所有阈值修改必须填写 Token（/root/vnstat-web-token.txt）。</small>
+      <small>Token 安装时显示并写入 /root/vnstat-web-token.txt。</small>
     </div>
 
     <div class="tiny" id="quotaHint">
@@ -1098,7 +1102,7 @@
       document.getElementById('q_tg_chat_id').value = s.tg_chat_id || '';
       document.getElementById('q_token').value = loadQuotaToken();
       document.getElementById('quotaHint').innerHTML =
-        '保存后：<b>黄灯=告警</b>，<b>红灯=危险</b>。所有修改必须使用 Token 保存到服务器。';
+        '保存后：<b>黄灯=告警</b>，<b>红灯=危险</b>。可选同步到服务器（需 Token）。';
     }).catch(()=>{
       document.getElementById('quotaHint').textContent =
         '读取失败：未找到 quota.json 或浏览器设置';
@@ -1123,6 +1127,7 @@
     const tg_enabled = document.getElementById('q_tg_enabled').checked ? 1 : 0;
     const tg_bot_token = document.getElementById('q_tg_bot_token').value.trim();
     const tg_chat_id = document.getElementById('q_tg_chat_id').value.trim();
+    const save_server = document.getElementById('q_save_server').checked;
     const token = document.getElementById('q_token').value.trim();
 
     const payload = {
@@ -1137,19 +1142,19 @@
       tg_chat_id
     };
 
-    if (!token) {
-      document.getElementById('quotaHint').textContent = '保存失败：必须填写 Token。';
-      return;
-    }
+    saveQuotaLocal(payload);
+    saveQuotaToken(token);
 
-    try{
-      await saveQuotaServer(payload, token);
-      saveQuotaLocal(payload);
-      saveQuotaToken(token);
+    if (save_server) {
+      try{
+        await saveQuotaServer(payload, token);
+        closeQuotaModal();
+      }catch(e){
+        document.getElementById('quotaHint').textContent = '保存到服务器失败：' + (e.message || e);
+        return;
+      }
+    } else {
       closeQuotaModal();
-    }catch(e){
-      document.getElementById('quotaHint').textContent = '保存到服务器失败：' + (e.message || e);
-      return;
     }
     await refreshQuotaAlarm();
   };
