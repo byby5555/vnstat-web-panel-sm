@@ -15,6 +15,12 @@ FIVE_MIN_POINTS="${FIVE_MIN_POINTS:-288}"
 QUOTA_GB="${QUOTA_GB:-1024}"
 ALERT_PCT="${ALERT_PCT:-90}"
 DANGER_PCT="${DANGER_PCT:-100}"
+AUTO_SHUTDOWN="${AUTO_SHUTDOWN:-0}"
+SHUTDOWN_PCT="${SHUTDOWN_PCT:-100}"
+MONTH_START_DAY="${MONTH_START_DAY:-1}"
+TG_ENABLED="${TG_ENABLED:-0}"
+TG_BOT_TOKEN="${TG_BOT_TOKEN:-}"
+TG_CHAT_ID="${TG_CHAT_ID:-}"
 
 mkdir -p "$WEB_ROOT"
 
@@ -107,7 +113,8 @@ chmod 644   "$WEB_ROOT/vnstat.json"   "$WEB_ROOT/vnstat_5min.json"   "$WEB_ROOT/
 if [[ -f "$QUOTA_CONF" ]]; then
   cp -f "$QUOTA_CONF" "$WEB_ROOT/quota.json"
 else
-  printf '{"quota_gb":%s,"alert_pct":%s,"danger_pct":%s}\n' "$QUOTA_GB" "$ALERT_PCT" "$DANGER_PCT" > "$WEB_ROOT/quota.json"
+  printf '{"quota_gb":%s,"alert_pct":%s,"danger_pct":%s,"auto_shutdown":%s,"shutdown_pct":%s,"month_start_day":%s,"tg_enabled":%s,"tg_bot_token":"%s","tg_chat_id":"%s"}\n' \
+    "$QUOTA_GB" "$ALERT_PCT" "$DANGER_PCT" "$AUTO_SHUTDOWN" "$SHUTDOWN_PCT" "$MONTH_START_DAY" "$TG_ENABLED" "$TG_BOT_TOKEN" "$TG_CHAT_ID" > "$WEB_ROOT/quota.json"
 fi
 chmod 644 "$WEB_ROOT/quota.json"
 
