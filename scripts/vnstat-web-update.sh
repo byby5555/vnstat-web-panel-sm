@@ -74,14 +74,35 @@ fi
   echo "UpdatedUTC: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
   echo
   "$VNSTAT_BIN" -i "$IFACE" || true
-} > "$WEB_ROOT/summary.txt"
+} > "$WEB_ROOT/summary_en.txt"
+
+if [[ -f "$WEB_ROOT/summary_en.txt" ]]; then
+  sed -e 's/^Interface:/网卡:/g' \
+      -e 's/^UpdatedUTC:/更新时间(UTC):/g' \
+      -e 's/Database updated/数据库更新时间/g' \
+      -e 's/selected interface/当前网卡/g' \
+      -e 's/ since / 自 /g' \
+      -e 's/ avg\\. rate/ 平均速率/g' \
+      -e 's/ average rate/ 平均速率/g' \
+      -e 's/ rx:/ 下行:/g' \
+      -e 's/ tx:/ 上行:/g' \
+      -e 's/ total:/ 合计:/g' \
+      -e 's/ estimated/ 预估/g' \
+      -e 's/ daily/ 每日/g' \
+      -e 's/ monthly/ 每月/g' \
+      -e 's/ yearly/ 每年/g' \
+      -e 's/ last 7 days/ 最近7天/g' \
+      "$WEB_ROOT/summary_en.txt" > "$WEB_ROOT/summary.txt"
+else
+  cp -f "$WEB_ROOT/summary_en.txt" "$WEB_ROOT/summary.txt"
+fi
 
 SERVER_TZ="$(timedatectl show -p Timezone --value 2>/dev/null || true)"
 SERVER_TIME_ISO="$(date +%Y-%m-%dT%H:%M:%S)"
 SERVER_UTC_OFFSET="$(date +%z)"
 printf '{"server_time_iso":"%s","server_tz":"%s","server_utc_offset":"%s"}\n' "$SERVER_TIME_ISO" "${SERVER_TZ:-}" "$SERVER_UTC_OFFSET" > "$WEB_ROOT/server_time.json"
 
-chmod 644   "$WEB_ROOT/vnstat.json"   "$WEB_ROOT/vnstat_5min.json"   "$WEB_ROOT/summary.txt"   "$WEB_ROOT/server_time.json"
+chmod 644   "$WEB_ROOT/vnstat.json"   "$WEB_ROOT/vnstat_5min.json"   "$WEB_ROOT/summary.txt"   "$WEB_ROOT/summary_en.txt"   "$WEB_ROOT/server_time.json"
 
 if [[ -f "$QUOTA_CONF" ]]; then
   cp -f "$QUOTA_CONF" "$WEB_ROOT/quota.json"
