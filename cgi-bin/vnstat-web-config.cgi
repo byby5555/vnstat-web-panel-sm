@@ -65,10 +65,6 @@ if [ -f "$CFG" ]; then
   . "$CFG" || true
   API_TOKEN="${QUOTA_TOKEN:-${API_TOKEN:-}}"
 fi
-if [ -z "$API_TOKEN" ]; then
-  reply '{"ok":false,"err":"unauthorized"}'
-  exit 0
-fi
 
 if [ "${REQUEST_METHOD:-GET}" = "GET" ]; then
   reply "$(cat "$CONF" 2>/dev/null || echo "$DEFAULT_JSON")"
@@ -80,14 +76,10 @@ CTYPE="${CONTENT_TYPE:-}"
 
 REQ_TOKEN="${HTTP_X_AUTH_TOKEN:-}"
 if [ -z "$REQ_TOKEN" ]; then
-  if echo "$CTYPE" | grep -qi 'application/json'; then
-    REQ_TOKEN="$(json_get_str "$BODY" token)"
-  else
-    REQ_TOKEN="$(parse_form "$BODY" token || true)"
-    REQ_TOKEN="$(urldecode "${REQ_TOKEN:-}")"
-  fi
+  REQ_TOKEN="$(parse_form "$BODY" token || true)"
+  REQ_TOKEN="$(urldecode "${REQ_TOKEN:-}")"
 fi
-if [ -z "$REQ_TOKEN" ] || [ "$REQ_TOKEN" != "$API_TOKEN" ]; then
+if [ -n "$API_TOKEN" ] && [ "$REQ_TOKEN" != "$API_TOKEN" ]; then
   reply '{"ok":false,"err":"unauthorized"}'
   exit 0
 fi
