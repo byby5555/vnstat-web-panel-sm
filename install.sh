@@ -72,13 +72,18 @@ detect_iface() {
 
 IFACE_DETECTED="$(detect_iface || true)"
 TOKEN_FILE="/root/vnstat-web-token.txt"
-if command -v openssl >/dev/null 2>&1; then
-  QUOTA_TOKEN="$(openssl rand -hex 16)"
-else
-  QUOTA_TOKEN="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+if [[ -f "$TOKEN_FILE" ]]; then
+  QUOTA_TOKEN="$(tr -d ' \n' < "$TOKEN_FILE" | head -n1)"
 fi
-umask 077
-printf "%s\n" "$QUOTA_TOKEN" > "$TOKEN_FILE"
+if [[ -z "${QUOTA_TOKEN:-}" ]]; then
+  if command -v openssl >/dev/null 2>&1; then
+    QUOTA_TOKEN="$(openssl rand -hex 16)"
+  else
+    QUOTA_TOKEN="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+  fi
+  umask 077
+  printf "%s\n" "$QUOTA_TOKEN" > "$TOKEN_FILE"
+fi
 
 cat > /etc/vnstat-web.conf <<EOF
 IFACE=${IFACE_DETECTED:-eth0}
