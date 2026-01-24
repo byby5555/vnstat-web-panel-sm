@@ -304,6 +304,16 @@
       backdrop-filter: blur(16px);
     }
     .modal h3{margin:0 0 12px 0;font-size:14px}
+    .form-grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap:12px 16px;
+    }
+    .form-grid .field{margin:0}
+    .form-grid .field.full{grid-column:1 / -1}
+    @media (max-width:720px){
+      .form-grid{grid-template-columns:1fr}
+    }
     .field{margin:10px 0}
     .field label{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}
     .field input{
@@ -522,47 +532,14 @@
       </div>
 
       <div class="field full">
-        <label>保存需要 Token</label>
+        <label>保存到服务器（需要 Token）</label>
+        <div class="checkbox-row">
+          <input id="q_save_server" type="checkbox" />
+          <span>同步保存到 /etc/vnstat-web/quota.json</span>
+        </div>
         <input id="q_token" type="password" placeholder="安装时生成的 Token" />
-        <small>所有阈值修改必须填写 Token（/root/vnstat-web-token.txt）。</small>
+        <small>Token 安装时显示并写入 /root/vnstat-web-token.txt。</small>
       </div>
-    </div>
-
-    <div class="field">
-      <label>每月流量起算日（1-31）</label>
-      <input id="q_month_start_day" type="number" min="1" max="31" step="1" />
-      <small>例如填 15 表示每月 15 号起算统计。</small>
-    </div>
-
-    <div class="field">
-      <label>自动关机（到达关机阈值）</label>
-      <div class="checkbox-row">
-        <input id="q_auto_shutdown" type="checkbox" />
-        <span>达到阈值自动关机</span>
-      </div>
-      <input id="q_shutdown_pct" type="number" min="1" max="100" step="1" />
-      <small>关机阈值百分比（建议高于危险阈值）。</small>
-    </div>
-
-    <div class="field">
-      <label>Telegram 通知</label>
-      <div class="checkbox-row">
-        <input id="q_tg_enabled" type="checkbox" />
-        <span>启用 Telegram Bot 告警/关机通知</span>
-      </div>
-      <input id="q_tg_bot_token" type="password" placeholder="Bot Token" />
-      <input id="q_tg_chat_id" type="text" placeholder="Chat ID" />
-      <small>填写 Bot Token 与 Chat ID 后会推送告警/关机信息。</small>
-    </div>
-
-    <div class="field">
-      <label>保存到服务器（需要 Token）</label>
-      <div class="checkbox-row">
-        <input id="q_save_server" type="checkbox" />
-        <span>同步保存到 /etc/vnstat-web/quota.json</span>
-      </div>
-      <input id="q_token" type="password" placeholder="安装时生成的 Token" />
-      <small>Token 安装时显示并写入 /root/vnstat-web-token.txt。</small>
     </div>
 
     <div class="tiny" id="quotaHint">
