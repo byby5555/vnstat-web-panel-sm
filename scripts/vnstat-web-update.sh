@@ -21,8 +21,22 @@ MONTH_START_DAY="${MONTH_START_DAY:-1}"
 TG_ENABLED="${TG_ENABLED:-0}"
 TG_BOT_TOKEN="${TG_BOT_TOKEN:-}"
 TG_CHAT_ID="${TG_CHAT_ID:-}"
+MAX_WEB_SIZE_MB="${MAX_WEB_SIZE_MB:-100}"
 
 mkdir -p "$WEB_ROOT"
+
+cleanup_web_files(){
+  local size_mb
+  size_mb="$(du -sm "$WEB_ROOT" 2>/dev/null | awk '{print $1}')"
+  size_mb="${size_mb:-0}"
+  if (( size_mb <= MAX_WEB_SIZE_MB )); then
+    return 0
+  fi
+  find "$WEB_ROOT" -maxdepth 1 -type f \( -name '*.tmp' -o -name '*.bak' -o -name '*~' \) -delete 2>/dev/null || true
+  find "$WEB_ROOT" -maxdepth 1 -type f \( -name '*.png' -o -name '*.json' -o -name '*.txt' \) -mtime +14 -delete 2>/dev/null || true
+}
+
+cleanup_web_files
 
 VNSTAT_BIN="${VNSTAT_BIN:-$(command -v vnstat || true)}"
 VNSTATI_BIN="${VNSTATI_BIN:-$(command -v vnstati || true)}"

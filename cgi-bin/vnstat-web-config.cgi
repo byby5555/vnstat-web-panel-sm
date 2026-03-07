@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+AUTH_LIB="/usr/local/lib/vnstat-web-auth-lib.sh"
+
 # 轻量 CGI：读/写 /etc/vnstat-web/quota.json
 # - GET:  返回 JSON
 # - POST: 支持 application/x-www-form-urlencoded 或 JSON
@@ -58,6 +60,21 @@ json_get_str(){
 }
 
 ensure_conf
+
+if [ -f "$AUTH_LIB" ]; then
+  # shellcheck disable=SC1090
+  . "$AUTH_LIB" || true
+  ensure_auth_files || true
+  SESSION_TOKEN="${HTTP_X_SESSION_TOKEN:-}"
+  if [ -z "${SESSION_TOKEN:-}" ]; then
+    SESSION_TOKEN="$(parse_form "${QUERY_STRING:-}" session_token || true)"
+  fi
+  SESSION_USER="$(get_session_user "${SESSION_TOKEN:-}" 2>/dev/null || true)"
+  if [ -z "${SESSION_USER:-}" ]; then
+    reply '{"ok":false,"err":"unauthorized"}'
+    exit 0
+  fi
+fi
 
 API_TOKEN=""
 if [ -f "$CFG" ]; then
