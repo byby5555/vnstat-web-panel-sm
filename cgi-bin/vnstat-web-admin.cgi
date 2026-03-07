@@ -44,15 +44,28 @@ case "$ACTION" in
     echo "$(date -Is) unblock ip=$IP by=$SESSION_USER" >> "$AUTH_LOG"
     reply '{"ok":true}'
     ;;
+
+  rename_user)
+    OLD_USER="$(json_get_str "$BODY" old_username)"
+    NEW_USER="$(json_get_str "$BODY" new_username)"
+    [[ -n "$OLD_USER" && -n "$NEW_USER" ]] || { reply '{"ok":false,"err":"bad_request"}'; exit 0; }
+    if ! jq -e --arg u "$OLD_USER" '.users[]?|select(.username==$u)' "$USERS_FILE" >/dev/null; then
+      reply '{"ok":false,"err":"user_not_found"}'
+      exit 0
+    fi
+    if jq -e --arg u "$NEW_USER" '.users[]?|select(.username==$u)' "$USERS_FILE" >/dev/null; then
+      reply '{"ok":false,"err":"user_exists"}'
+      exit 0
+    fi
+    rename_user "$OLD_USER" "$NEW_USER"
+    echo "$(date -Is) rename_user from=$OLD_USER to=$NEW_USER by=$SESSION_USER" >> "$AUTH_LOG"
+    reply '{"ok":true}'
+    ;;
   reset_password)
     TARGET="$(json_get_str "$BODY" username)"
     NEWPASS="$(json_get_str "$BODY" new_password)"
     [[ -n "$TARGET" && -n "$NEWPASS" ]] || { reply '{"ok":false,"err":"bad_request"}'; exit 0; }
-    SALT="$(openssl rand -hex 8 2>/dev/null || head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-    HASH="$(printf '%s%s' "$SALT" "$NEWPASS" | sha256sum | awk '{print $1}')"
-    NOW="$(date -Is)"
-    tmpf="$(mktemp)"
-    jq --arg u "$TARGET" --arg s "$SALT" --arg h "$HASH" --arg n "$NOW" '(.users[]|select(.username==$u)|.salt)=$s | (.users[]|select(.username==$u)|.password_hash)=$h | (.users[]|select(.username==$u)|.updated_at)=$n' "$USERS_FILE" > "$tmpf" && mv "$tmpf" "$USERS_FILE"
+    set_user_password "$TARGET" "$NEWPASS"
     echo "$(date -Is) reset_password user=$TARGET by=$SESSION_USER" >> "$AUTH_LOG"
     reply '{"ok":true}'
     ;;

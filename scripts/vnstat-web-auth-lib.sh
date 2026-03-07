@@ -12,6 +12,35 @@ AUTH_LOG="/var/log/vnstat-web-auth.log"
 
 mkdir -p "$AUTH_DIR" "$SESS_DIR" "$FAIL_DIR" "$STATE_DIR"
 
+
+rand_hex(){
+  local n="${1:-16}"
+  openssl rand -hex "$n" 2>/dev/null || head -c "$n" /dev/urandom | od -An -tx1 | tr -d ' \n'
+}
+
+password_hash_from_salt(){
+  local salt="$1" password="$2"
+  printf '%s%s' "$salt" "$password" | sha256sum | awk '{print $1}'
+}
+
+set_user_password(){
+  local username="$1" password="$2"
+  local salt hash now tmpf
+  salt="$(rand_hex 8)"
+  hash="$(password_hash_from_salt "$salt" "$password")"
+  now="$(date -Is)"
+  tmpf="$(mktemp)"
+  jq --arg u "$username" --arg s "$salt" --arg h "$hash" --arg n "$now" '(.users[]|select(.username==$u)|.salt)=$s | (.users[]|select(.username==$u)|.password_hash)=$h | (.users[]|select(.username==$u)|.updated_at)=$n' "$USERS_FILE" > "$tmpf" && mv "$tmpf" "$USERS_FILE"
+}
+
+rename_user(){
+  local old_user="$1" new_user="$2"
+  local now tmpf
+  now="$(date -Is)"
+  tmpf="$(mktemp)"
+  jq --arg o "$old_user" --arg n "$new_user" --arg now "$now" '(.users[]|select(.username==$o)|.username)=$n | (.users[]|select(.username==$n)|.updated_at)=$now' "$USERS_FILE" > "$tmpf" && mv "$tmpf" "$USERS_FILE"
+}
+
 get_auth_cfg(){
   local k="$1" def="$2"
   if [[ -f "$AUTH_CFG_FILE" ]]; then
@@ -32,10 +61,12 @@ ensure_auth_files(){
   if [[ ! -f "$USERS_FILE" ]]; then
     local salt hash now
     now="$(date -Is)"
-    salt="$(openssl rand -hex 8 2>/dev/null || head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-    hash="$(printf '%s%s' "$salt" 'admin123456' | sha256sum | awk '{print $1}')"
+    default_user="${INIT_AUTH_USERNAME:-admin}"
+    default_pass="${INIT_AUTH_PASSWORD:-admin123456}"
+    salt="$(rand_hex 8)"
+    hash="$(password_hash_from_salt "$salt" "$default_pass")"
     umask 027
-    jq -n --arg now "$now" --arg salt "$salt" --arg hash "$hash" '{users:[{username:"admin",salt:$salt,password_hash:$hash,created_at:$now,updated_at:$now}]}' > "$USERS_FILE"
+    jq -n --arg now "$now" --arg user "$default_user" --arg salt "$salt" --arg hash "$hash" '{users:[{username:$user,salt:$salt,password_hash:$hash,created_at:$now,updated_at:$now}]}' > "$USERS_FILE"
   fi
   if [[ ! -f "$BLOCK_FILE" ]]; then
     echo '{}' > "$BLOCK_FILE"
@@ -87,7 +118,7 @@ verify_user(){
   local salt hash
   salt="$(jq -r --arg u "$username" '.users[]?|select(.username==$u)|.salt // empty' "$USERS_FILE")"
   [[ -n "$salt" ]] || return 1
-  hash="$(printf '%s%s' "$salt" "$password" | sha256sum | awk '{print $1}')"
+  hash="$(password_hash_from_salt "$salt" "$password")"
   jq -e --arg u "$username" --arg h "$hash" '.users[]?|select(.username==$u and .password_hash==$h)' "$USERS_FILE" >/dev/null
 }
 

@@ -44,6 +44,7 @@ rm -f /usr/lib/cgi-bin/vnstat-web-admin.cgi
 rm -f /usr/local/bin/vnstat-web-update.sh
 rm -f /usr/local/bin/vnstat-quota-check.sh
 rm -f /usr/local/bin/vnstat-web-admin.sh
+rm -f /usr/local/bin/vn
 rm -f /usr/local/lib/vnstat-web-auth-lib.sh
 
 log "移除 web 目录与配置..."
@@ -52,6 +53,7 @@ rm -f /etc/vnstat-web.conf
 rm -rf /etc/vnstat-web
 rm -rf /var/lib/vnstat-web/auth
 rm -f /var/log/vnstat-web-auth.log
+rm -f /root/vnstat-web-login.txt
 
 log "重启 lighttpd（如果已安装）..."
 if command -v lighttpd >/dev/null 2>&1; then

@@ -373,6 +373,15 @@
       50%{ transform: translateY(-4px); }
       100%{ transform: translateY(0); }
     }
+
+    /* 简洁风格覆盖（减少炫光/动画） */
+    body{background:linear-gradient(180deg,#0f172a,#111827)!important}
+    body::before, body::after{display:none!important}
+    .logo{animation:none!important;box-shadow:none!important;background:#2563eb!important}
+    .badge,.seg button.active,.btn.primary{box-shadow:none!important}
+    .card{backdrop-filter:none!important}
+    .card:hover{transform:none!important;box-shadow:var(--shadow)!important}
+
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
@@ -509,6 +518,12 @@
       <label>解封 IP</label>
       <input id="secUnblockIp" type="text" placeholder="1.2.3.4" />
       <button class="btn" id="btnUnblockIp">解封</button>
+    </div>
+    <div class="field">
+      <label>修改用户名</label>
+      <input id="secOldUser" type="text" placeholder="当前用户名" />
+      <input id="secNewUser" type="text" placeholder="新用户名" />
+      <button class="btn" id="btnRenameUser">修改用户名</button>
     </div>
     <div class="field">
       <label>重置用户密码</label>
@@ -1292,6 +1307,12 @@
   document.getElementById('btnUnblockIp').onclick = async () => {
     const ip = document.getElementById('secUnblockIp').value.trim();
     await adminApi({action:'unblock_ip', ip});
+    await loadSecurityInfo();
+  };
+  document.getElementById('btnRenameUser').onclick = async () => {
+    const old_username = document.getElementById('secOldUser').value.trim();
+    const new_username = document.getElementById('secNewUser').value.trim();
+    await adminApi({action:'rename_user', old_username, new_username});
     await loadSecurityInfo();
   };
   document.getElementById('btnResetPass').onclick = async () => {
