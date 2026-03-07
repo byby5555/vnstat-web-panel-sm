@@ -101,6 +101,7 @@ TG_ENABLED=0
 TG_BOT_TOKEN=
 TG_CHAT_ID=
 QUOTA_TOKEN=${QUOTA_TOKEN}
+MAX_WEB_SIZE_MB=100
 EOF
 
 log "安装并启用 lighttpd /vnstat/ alias..."
@@ -137,6 +138,15 @@ install -m 755 "$BASE_DIR/scripts/vnstat-web-update.sh" /usr/local/bin/vnstat-we
 
 log "安装 vnstat-quota-check..."
 install -m 755 "$BASE_DIR/scripts/vnstat-quota-check.sh" /usr/local/bin/vnstat-quota-check.sh
+
+log "安装认证与安全管理组件..."
+install -d -m 755 /usr/local/lib
+install -m 755 "$BASE_DIR/scripts/vnstat-web-auth-lib.sh" /usr/local/lib/vnstat-web-auth-lib.sh
+install -m 755 "$BASE_DIR/scripts/vnstat-web-admin.sh" /usr/local/bin/vnstat-web-admin.sh
+install -d -m 755 /usr/lib/cgi-bin
+install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-config.cgi" /usr/lib/cgi-bin/vnstat-web-config.cgi
+install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-auth.cgi" /usr/lib/cgi-bin/vnstat-web-auth.cgi
+install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-admin.cgi" /usr/lib/cgi-bin/vnstat-web-admin.cgi
 
 log "生成初始数据文件..."
 if /usr/local/bin/vnstat-web-update.sh; then
