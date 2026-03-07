@@ -357,6 +357,12 @@
     .tiny{color:var(--muted);font-size:12px;line-height:1.6}
     .tiny.error{color:var(--bad);}
 
+
+    .authMask{position:fixed;inset:0;background:rgba(2,6,23,.82);display:flex;align-items:center;justify-content:center;z-index:10000;padding:16px}
+    .authBox{width:min(420px,100%);background:linear-gradient(180deg,var(--cardA),var(--cardB));border:1px solid var(--cardBorder);border-radius:16px;padding:16px}
+    .authBox h3{margin:0 0 12px 0}
+    .hidden{display:none!important}
+
     @keyframes drift{
       0%{ transform: translate3d(0,0,0) scale(1); }
       50%{ transform: translate3d(-2%, -1%, 0) scale(1.02); }
@@ -367,6 +373,15 @@
       50%{ transform: translateY(-4px); }
       100%{ transform: translateY(0); }
     }
+
+    /* 简洁风格覆盖（减少炫光/动画） */
+    body{background:linear-gradient(180deg,#0f172a,#111827)!important}
+    body::before, body::after{display:none!important}
+    .logo{animation:none!important;box-shadow:none!important;background:#2563eb!important}
+    .badge,.seg button.active,.btn.primary{box-shadow:none!important}
+    .card{backdrop-filter:none!important}
+    .card:hover{transform:none!important;box-shadow:var(--shadow)!important}
+
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
@@ -410,6 +425,8 @@
       </div>
 
       <button class="linkbtn" id="btnQuota">阈值设置</button>
+      <button class="linkbtn" id="btnSec">安全管理</button>
+      <button class="linkbtn" id="btnLogout">退出登录</button>
 
       <div class="pill">
         主题：
@@ -481,6 +498,54 @@
   </div>
 
   <div class="footer">数据来源：vnStat ｜ 建议后台 5 分钟更新 vnstat_5min.json / vnstat.json</div>
+</div>
+
+
+<!-- 安全管理弹窗 -->
+<div class="modalMask" id="secMask">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>🔐 VPS 安全管理</h3>
+    <div class="tiny" id="secCurrentUser">当前用户：-</div>
+    <div class="field">
+      <label>用户列表</label>
+      <pre id="secUsers">加载中...</pre>
+    </div>
+    <div class="field">
+      <label>已封锁 IP（失败5次自动封锁）</label>
+      <pre id="secBlocked">加载中...</pre>
+    </div>
+    <div class="field">
+      <label>解封 IP</label>
+      <input id="secUnblockIp" type="text" placeholder="1.2.3.4" />
+      <button class="btn" id="btnUnblockIp">解封</button>
+    </div>
+    <div class="field">
+      <label>修改用户名</label>
+      <input id="secOldUser" type="text" placeholder="当前用户名" />
+      <input id="secNewUser" type="text" placeholder="新用户名" />
+      <button class="btn" id="btnRenameUser">修改用户名</button>
+    </div>
+    <div class="field">
+      <label>重置用户密码</label>
+      <input id="secResetUser" type="text" placeholder="用户名" />
+      <input id="secResetPass" type="password" placeholder="新密码" />
+      <button class="btn" id="btnResetPass">重置密码</button>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btnSecClose">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 登录弹窗 -->
+<div class="authMask" id="authMask">
+  <div class="authBox">
+    <h3>登录 vnstat-web</h3>
+    <div class="field"><label>用户名</label><input id="loginUser" type="text" value="admin" /></div>
+    <div class="field"><label>密码</label><input id="loginPass" type="password" /></div>
+    <div class="tiny error" id="loginHint"></div>
+    <div class="actions"><button class="btn primary" id="btnLogin">登录</button></div>
+  </div>
 </div>
 
 <!-- 阈值设置弹窗 -->
@@ -561,6 +626,9 @@
   const QUOTA_API = "/cgi-bin/vnstat-web-config.cgi";
   const QUOTA_LOCAL_KEY = "vnstat_quota_settings";
   const QUOTA_TOKEN_KEY = "vnstat_quota_token";
+  const AUTH_API = "/cgi-bin/vnstat-web-auth.cgi";
+  const ADMIN_API = "/cgi-bin/vnstat-web-admin.cgi";
+  const SESSION_KEY = "vnstat_session_token";
 
   let view = 'traffic'; // traffic | rate
   let mode = 'hour';    // fivemin | hour | day | month
@@ -1178,7 +1246,85 @@
     await refreshQuotaAlarm();
   };
 
-  function tick(){
+
+  function getSessionToken(){ return localStorage.getItem(SESSION_KEY) || ""; }
+  function setSessionToken(t){ if(t) localStorage.setItem(SESSION_KEY,t); else localStorage.removeItem(SESSION_KEY); }
+
+  async function authApi(payload){
+    const r = await fetch(AUTH_API, {method:'POST', headers:{'Content-Type':'application/json','X-Session-Token':getSessionToken()}, body:JSON.stringify({...payload, session_token:getSessionToken()})});
+    return await r.json();
+  }
+
+  async function adminApi(payload){
+    const r = await fetch(ADMIN_API, {method:'POST', headers:{'Content-Type':'application/json','X-Session-Token':getSessionToken()}, body:JSON.stringify({...payload, session_token:getSessionToken()})});
+    return await r.json();
+  }
+
+  async function ensureLogin(){
+    const j = await authApi({action:'status'});
+    if(j && j.authenticated){
+      document.getElementById('authMask').classList.add('hidden');
+      return true;
+    }
+    document.getElementById('authMask').classList.remove('hidden');
+    return false;
+  }
+
+  async function loadSecurityInfo(){
+    const j = await adminApi({action:'list'});
+    if(!j.ok) throw new Error(j.err || 'load failed');
+    document.getElementById('secCurrentUser').textContent = '当前用户：' + (j.current_user || '-');
+    document.getElementById('secUsers').textContent = (j.users||[]).map(x=>`用户: ${x.username} 创建: ${x.created_at} 更新: ${x.updated_at}`).join('\n') || '无';
+    document.getElementById('secBlocked').textContent = (j.blocked_ips||[]).map(x=>`IP: ${x.ip} 时间: ${x.blocked_at} 用户: ${x.username}`).join('\n') || '无';
+  }
+
+
+  document.getElementById('btnLogin').onclick = async () => {
+    const username = document.getElementById('loginUser').value.trim();
+    const password = document.getElementById('loginPass').value;
+    const j = await authApi({action:'login', username, password});
+    if(j.ok){
+      setSessionToken(j.session_token);
+      document.getElementById('loginHint').textContent = '';
+      document.getElementById('authMask').classList.add('hidden');
+      ensureLogin().then((ok)=>{ if(ok) tick(); });
+    } else {
+      document.getElementById('loginHint').textContent = '登录失败：' + (j.err || 'unknown');
+    }
+  };
+
+  document.getElementById('btnLogout').onclick = async () => {
+    await authApi({action:'logout'}).catch(()=>{});
+    setSessionToken('');
+    document.getElementById('authMask').classList.remove('hidden');
+  };
+
+  document.getElementById('btnSec').onclick = async () => {
+    document.getElementById('secMask').style.display = 'flex';
+    try{ await loadSecurityInfo(); }catch(e){ document.getElementById('secUsers').textContent = '读取失败'; }
+  };
+  document.getElementById('btnSecClose').onclick = () => { document.getElementById('secMask').style.display = 'none'; };
+  document.getElementById('btnUnblockIp').onclick = async () => {
+    const ip = document.getElementById('secUnblockIp').value.trim();
+    await adminApi({action:'unblock_ip', ip});
+    await loadSecurityInfo();
+  };
+  document.getElementById('btnRenameUser').onclick = async () => {
+    const old_username = document.getElementById('secOldUser').value.trim();
+    const new_username = document.getElementById('secNewUser').value.trim();
+    await adminApi({action:'rename_user', old_username, new_username});
+    await loadSecurityInfo();
+  };
+  document.getElementById('btnResetPass').onclick = async () => {
+    const username = document.getElementById('secResetUser').value.trim();
+    const new_password = document.getElementById('secResetPass').value;
+    await adminApi({action:'reset_password', username, new_password});
+    await loadSecurityInfo();
+  };
+
+  async function tick(){
+    const authed = await ensureLogin();
+    if(!authed) return;
     refreshImages();
     refreshSummary();
     refreshChart();
@@ -1189,7 +1335,7 @@
   // 初始化
   initTheme();
   setStatusText();
-  tick();
+  ensureLogin().then((ok)=>{ if(ok) tick(); });
 
   setInterval(tick, 60 * 1000);
   window.addEventListener('resize', () => { if (chart) chart.resize(); });
