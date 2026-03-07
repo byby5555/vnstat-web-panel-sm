@@ -537,17 +537,6 @@
   </div>
 </div>
 
-<!-- 登录弹窗 -->
-<div class="authMask" id="authMask">
-  <div class="authBox">
-    <h3>登录 vnstat-web</h3>
-    <div class="field"><label>用户名</label><input id="loginUser" type="text" value="admin" /></div>
-    <div class="field"><label>密码</label><input id="loginPass" type="password" /></div>
-    <div class="tiny error" id="loginHint"></div>
-    <div class="actions"><button class="btn primary" id="btnLogin">登录</button></div>
-  </div>
-</div>
-
 <!-- 阈值设置弹窗 -->
 <div class="modalMask" id="quotaMask">
   <div class="modal" role="dialog" aria-modal="true">
@@ -629,6 +618,7 @@
   const AUTH_API = "/cgi-bin/vnstat-web-auth.cgi";
   const ADMIN_API = "/cgi-bin/vnstat-web-admin.cgi";
   const SESSION_KEY = "vnstat_session_token";
+  const DATA_API = "/cgi-bin/vnstat-web-data.cgi";
 
   let view = 'traffic'; // traffic | rate
   let mode = 'hour';    // fivemin | hour | day | month
@@ -673,15 +663,19 @@
     document.getElementById('modeName').textContent = map[mode] || mode;
   }
 
+  function dataUrl(name){
+    const sp = new URLSearchParams({name, session_token:getSessionToken(), _: Date.now().toString()});
+    return `${DATA_API}?${sp.toString()}`;
+  }
+
   function refreshImages() {
-    const t = Date.now();
-    document.getElementById('img_hourly').src  = 'hourly.png?_=' + t;
-    document.getElementById('img_daily').src   = 'daily.png?_=' + t;
-    document.getElementById('img_monthly').src = 'monthly.png?_=' + t;
+    document.getElementById('img_hourly').src  = dataUrl('hourly.png');
+    document.getElementById('img_daily').src   = dataUrl('daily.png');
+    document.getElementById('img_monthly').src = dataUrl('monthly.png');
   }
 
   function refreshSummary() {
-    fetch('summary.txt?_=' + Date.now())
+    fetch(dataUrl('summary.txt'), { headers: {'X-Session-Token': getSessionToken()} })
       .then(r => r.text())
       .then(t => {
         document.getElementById('summary').textContent = t;
@@ -915,7 +909,7 @@
 
   function refreshChart() {
     if (mode === 'fivemin') {
-      fetch('vnstat_5min.json?_=' + Date.now())
+      fetch(dataUrl('vnstat_5min.json'), { headers: {'X-Session-Token': getSessionToken()} })
         .then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(vn => {
           const series = pickSeriesFrom5MinJson(vn);
@@ -926,7 +920,7 @@
       return;
     }
 
-    fetch('vnstat.json?_=' + Date.now())
+    fetch(dataUrl('vnstat.json'), { headers: {'X-Session-Token': getSessionToken()} })
       .then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(vn => {
         const series = pickSeriesFromVnstatJson(vn, mode);
@@ -967,7 +961,7 @@
     document.getElementById('browserClock').textContent =
       new Date().toLocaleString() + ' ' + tz;
 
-    fetch('server_time.json?_=' + Date.now())
+    fetch(dataUrl('server_time.json'), { headers: {'X-Session-Token': getSessionToken()} })
       .then(r => r.ok ? r.json() : null)
       .then(j => {
         if(!j) return;
@@ -1062,7 +1056,7 @@
   }
 
   async function fetchQuotaFile(){
-    const r = await fetch(QUOTA_URL + '?_=' + Date.now(), { cache: 'no-store' });
+    const r = await fetch(dataUrl('quota.json'), { cache: 'no-store', headers: {'X-Session-Token': getSessionToken()} });
     if(!r.ok) throw new Error('quota.json HTTP ' + r.status);
     return await r.json();
   }
@@ -1130,7 +1124,7 @@
     document.getElementById('monthQuota').textContent = quotaGb + 'GB';
 
     try{
-      const r = await fetch('vnstat.json?_=' + Date.now());
+      const r = await fetch(dataUrl('vnstat.json'), { headers: {'X-Session-Token': getSessionToken()} });
       if(!r.ok) throw new Error('vnstat.json HTTP ' + r.status);
       const vn = await r.json();
 
@@ -1261,12 +1255,12 @@
   }
 
   async function ensureLogin(){
-    const j = await authApi({action:'status'});
-    if(j && j.authenticated){
-      document.getElementById('authMask').classList.add('hidden');
-      return true;
-    }
-    document.getElementById('authMask').classList.remove('hidden');
+    try{
+      const j = await authApi({action:'status'});
+      if(j && j.authenticated) return true;
+    }catch(e){}
+    const next = encodeURIComponent(location.pathname + location.search);
+    location.href = `/vnstat/login.html?next=${next}`;
     return false;
   }
 
@@ -1279,24 +1273,10 @@
   }
 
 
-  document.getElementById('btnLogin').onclick = async () => {
-    const username = document.getElementById('loginUser').value.trim();
-    const password = document.getElementById('loginPass').value;
-    const j = await authApi({action:'login', username, password});
-    if(j.ok){
-      setSessionToken(j.session_token);
-      document.getElementById('loginHint').textContent = '';
-      document.getElementById('authMask').classList.add('hidden');
-      ensureLogin().then((ok)=>{ if(ok) tick(); });
-    } else {
-      document.getElementById('loginHint').textContent = '登录失败：' + (j.err || 'unknown');
-    }
-  };
-
   document.getElementById('btnLogout').onclick = async () => {
     await authApi({action:'logout'}).catch(()=>{});
     setSessionToken('');
-    document.getElementById('authMask').classList.remove('hidden');
+    location.href='/vnstat/login.html';
   };
 
   document.getElementById('btnSec').onclick = async () => {

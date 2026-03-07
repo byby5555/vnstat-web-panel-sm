@@ -41,6 +41,7 @@ log "移除 CGI 与更新脚本..."
 rm -f /usr/lib/cgi-bin/vnstat-web-config.cgi
 rm -f /usr/lib/cgi-bin/vnstat-web-auth.cgi
 rm -f /usr/lib/cgi-bin/vnstat-web-admin.cgi
+rm -f /usr/lib/cgi-bin/vnstat-web-data.cgi
 rm -f /usr/local/bin/vnstat-web-update.sh
 rm -f /usr/local/bin/vnstat-quota-check.sh
 rm -f /usr/local/bin/vnstat-web-admin.sh

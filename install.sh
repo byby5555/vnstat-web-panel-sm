@@ -157,6 +157,7 @@ install -d -m 755 /usr/lib/cgi-bin
 install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-config.cgi" /usr/lib/cgi-bin/vnstat-web-config.cgi
 install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-auth.cgi" /usr/lib/cgi-bin/vnstat-web-auth.cgi
 install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-admin.cgi" /usr/lib/cgi-bin/vnstat-web-admin.cgi
+install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-data.cgi" /usr/lib/cgi-bin/vnstat-web-data.cgi
 
 
 
