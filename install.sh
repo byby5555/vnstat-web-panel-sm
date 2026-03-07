@@ -46,6 +46,16 @@ PORT="${PORT:-$DEFAULT_PORT}"
 
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+gen_strong_password(){
+  local raw pass
+  raw="$(openssl rand -base64 64 2>/dev/null || head -c 64 /dev/urandom | base64)"
+  pass="$(printf "%s" "$raw" | tr -dc "A-Za-z0-9@#%+=_" | cut -c1-20)"
+  if [[ ${#pass} -lt 16 ]]; then
+    pass="$(openssl rand -hex 12 2>/dev/null || head -c 12 /dev/urandom | od -An -tx1 | tr -d " \n")"
+  fi
+  echo "$pass"
+}
+
 log "安装依赖..."
 apt-get update -y
 apt-get install -y vnstat vnstati lighttpd curl jq
@@ -101,6 +111,7 @@ TG_ENABLED=0
 TG_BOT_TOKEN=
 TG_CHAT_ID=
 QUOTA_TOKEN=${QUOTA_TOKEN}
+MAX_WEB_SIZE_MB=100
 EOF
 
 log "安装并启用 lighttpd /vnstat/ alias..."
@@ -138,6 +149,44 @@ install -m 755 "$BASE_DIR/scripts/vnstat-web-update.sh" /usr/local/bin/vnstat-we
 log "安装 vnstat-quota-check..."
 install -m 755 "$BASE_DIR/scripts/vnstat-quota-check.sh" /usr/local/bin/vnstat-quota-check.sh
 
+log "安装认证与安全管理组件..."
+install -d -m 755 /usr/local/lib
+install -m 755 "$BASE_DIR/scripts/vnstat-web-auth-lib.sh" /usr/local/lib/vnstat-web-auth-lib.sh
+install -m 755 "$BASE_DIR/scripts/vnstat-web-admin.sh" /usr/local/bin/vnstat-web-admin.sh
+install -d -m 755 /usr/lib/cgi-bin
+install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-config.cgi" /usr/lib/cgi-bin/vnstat-web-config.cgi
+install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-auth.cgi" /usr/lib/cgi-bin/vnstat-web-auth.cgi
+install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-admin.cgi" /usr/lib/cgi-bin/vnstat-web-admin.cgi
+install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-data.cgi" /usr/lib/cgi-bin/vnstat-web-data.cgi
+
+
+
+log "创建快捷管理命令: vn"
+cat > /usr/local/bin/vn <<'EOS'
+#!/usr/bin/env bash
+exec /usr/local/bin/vnstat-web-admin.sh "$@"
+EOS
+chmod 755 /usr/local/bin/vn
+
+log "初始化随机 Web 登录账号..."
+AUTH_DIR="/etc/vnstat-web"
+mkdir -p "$AUTH_DIR"
+LOGIN_USER="vn$(openssl rand -hex 3 2>/dev/null || head -c 3 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+LOGIN_PASS="$(gen_strong_password)"
+AUTH_NOW="$(date -Is)"
+AUTH_SALT="$(openssl rand -hex 8 2>/dev/null || head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+AUTH_HASH="$(printf '%s%s' "$AUTH_SALT" "$LOGIN_PASS" | sha256sum | awk '{print $1}')"
+umask 027
+jq -n --arg now "$AUTH_NOW" --arg user "$LOGIN_USER" --arg salt "$AUTH_SALT" --arg hash "$AUTH_HASH" '{users:[{username:$user,salt:$salt,password_hash:$hash,created_at:$now,updated_at:$now}]}' > /etc/vnstat-web/users.json
+printf '{"session_ttl_seconds":43200,"max_login_failures":5}
+' > /etc/vnstat-web/auth.json
+printf 'username=%s
+password=%s
+created_at=%s
+' "$LOGIN_USER" "$LOGIN_PASS" "$AUTH_NOW" > /root/vnstat-web-login.txt
+chmod 600 /root/vnstat-web-login.txt
+
+
 log "生成初始数据文件..."
 if /usr/local/bin/vnstat-web-update.sh; then
   ok "初始数据文件已生成"
@@ -153,12 +202,20 @@ if [[ -d "$BASE_DIR/systemd" ]]; then
 fi
 
 ok "安装完成"
+SERVER_IPS="$(hostname -I 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i!~/^127\./) print $i}' | paste -sd \, - || true)"
+SERVER_IPS="${SERVER_IPS:-$(ip -4 -o addr show scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | paste -sd \, -)}"
 echo
 echo "阈值设置 Token（用于保存到服务器）：${QUOTA_TOKEN}"
 echo "Token 已保存：${TOKEN_FILE}"
+echo "Web 登录账号：${LOGIN_USER}"
+echo "Web 登录密码：${LOGIN_PASS}"
+echo "登录信息文件：/root/vnstat-web-login.txt"
+echo "管理菜单命令：vn"
 echo
-echo "访问：http://<你的IP>:${PORT}/ （跳转到 /vnstat/）或 http://<你的IP>:${PORT}/vnstat/"
-echo "访问：http://<你的IP>:${PORT}/ （与 /vnstat/ 同一页面）或 http://<你的IP>:${PORT}/vnstat/"
+echo "服务器IP：${SERVER_IPS:-请用 ip a 查看}"
+echo "面板端口：${PORT}"
+echo "访问：http://<服务器IP>:${PORT}/ （跳转到 /vnstat/）"
+echo "访问：http://<服务器IP>:${PORT}/vnstat/"
 echo
 
 echo "---- 安装后自检（HTTP code 应为 200） ----"

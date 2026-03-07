@@ -24,6 +24,7 @@ During install you can input the panel port (default: `8888`).
 
 - Web: `http://<server-ip>:<port>/` (redirects to `/vnstat/`)
 - Web: `http://<server-ip>:<port>/` (same UI as `/vnstat/`)
+- Login: `http://<server-ip>:<port>/vnstat/login.html`
 - CGI: `http://<server-ip>:<port>/cgi-bin/vnstat-web-config.cgi`
 
 Common commands:
@@ -37,7 +38,24 @@ systemctl status lighttpd --no-pager
 
 # lighttpd logs
 journalctl -u lighttpd -n 80 --no-pager
+
+# 安全管理一级菜单
+vn
 ```
+
+
+## 新增安全特性（本次更新）
+
+- 安装完成会显示：服务器 IP、端口、随机登录账号、随机密码。
+- Web 登录认证（安装时自动随机生成强用户名/强密码，并显示在安装输出，同时保存到 `/root/vnstat-web-login.txt`）。
+- 登录失败同一 IP 达到 5 次自动封锁，并记录到 `/var/log/vnstat-web-auth.log`。
+- 主面板改为“先登录页再跳转”；`/vnstat/` 未登录会自动重定向到 `/vnstat/login.html`。
+- 二级数据文件（json/txt/png）禁止直访，统一走受保护 CGI 接口（带会话校验），减少扫描暴露面。
+- 新增“安全管理”页面弹窗：可查看用户、查看封锁 IP、手动解封、重置密码。
+- 新增 VPS 终端管理脚本：`/usr/local/bin/vnstat-web-admin.sh`，并创建快捷命令 `vn`（一级菜单交互，支持改用户名、改密码、重置密码、重置登录账号、重启服务、执行卸载）。
+- `scripts/vnstat-web-update.sh` 增加自动清理：当 Web 输出目录超过 `100MB`（可配 `MAX_WEB_SIZE_MB`）时清理临时文件与过期图片/文本。
+
+> 默认认证数据文件：`/etc/vnstat-web/users.json`，会在首次调用认证接口时自动初始化。
 
 ## Uninstall
 
