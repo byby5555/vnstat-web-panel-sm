@@ -11,7 +11,14 @@ fi
 
 reply(){ printf "Content-Type: application/json\r\nCache-Control: no-store\r\n\r\n%s" "$1"; }
 read_body(){ local len="${CONTENT_LENGTH:-0}"; [[ "$len" =~ ^[0-9]+$ ]] && head -c "$len" || cat; }
-json_get_str(){ echo "$1" | sed -n "s/.*\"$2\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p" | head -n1; }
+json_get_str(){
+  local body="$1" key="$2"
+  if command -v jq >/dev/null 2>&1; then
+    jq -r --arg k "$key" '.[$k] // empty | if type=="string" then . else "" end' <<<"$body" 2>/dev/null || true
+  else
+    echo "$body" | sed -n "s/.*\"$key\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p" | head -n1
+  fi
+}
 
 ensure_auth_files
 cleanup_auth_runtime

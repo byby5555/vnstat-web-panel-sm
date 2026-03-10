@@ -167,8 +167,9 @@ session_token_from_env(){
 cleanup_auth_runtime(){
   local now old
   now="$(date +%s)"
-  find "$SESS_DIR" -type f -name '*.json' | while read -r f; do
+  while read -r f; do
     old="$(jq -r '.expire_at // 0' "$f" 2>/dev/null || echo 0)"
     (( old > 0 && now > old )) && rm -f "$f"
-  done
+  done < <(find "$SESS_DIR" -type f -name '*.json')
+  return 0
 }
