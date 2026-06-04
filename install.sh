@@ -159,7 +159,26 @@ install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-auth.cgi" /usr/lib/cgi-bin/vnstat-w
 install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-admin.cgi" /usr/lib/cgi-bin/vnstat-web-admin.cgi
 install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-data.cgi" /usr/lib/cgi-bin/vnstat-web-data.cgi
 
+log "修复权限和创建必要目录..."
+# 确保 CGI 脚本权限正确
+chmod 755 /usr/lib/cgi-bin/vnstat-web-auth.cgi
+chmod 755 /usr/lib/cgi-bin/vnstat-web-data.cgi
+chmod 755 /usr/lib/cgi-bin/vnstat-web-config.cgi
+chmod 755 /usr/lib/cgi-bin/vnstat-web-admin.cgi
 
+# 确保认证库权限正确
+chmod 755 /usr/local/lib/vnstat-web-auth-lib.sh
+
+# 创建和修复认证相关目录
+mkdir -p /var/lib/vnstat-web/auth/{sessions,fails}
+chmod 755 /var/lib/vnstat-web
+chmod 755 /var/lib/vnstat-web/auth
+chmod 755 /var/lib/vnstat-web/auth/sessions
+chmod 755 /var/lib/vnstat-web/auth/fails
+
+# 创建和修复认证配置目录
+mkdir -p /etc/vnstat-web
+chmod 755 /etc/vnstat-web
 
 log "创建快捷管理命令: vn"
 cat > /usr/local/bin/vn <<'EOS'
@@ -177,7 +196,7 @@ AUTH_NOW="$(date -Is)"
 AUTH_SALT="$(openssl rand -hex 8 2>/dev/null || head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 AUTH_HASH="$(printf '%s%s' "$AUTH_SALT" "$LOGIN_PASS" | sha256sum | awk '{print $1}')"
 umask 027
-jq -n --arg now "$AUTH_NOW" --arg user "$LOGIN_USER" --arg salt "$AUTH_SALT" --arg hash "$AUTH_HASH" '{users:[{username:$user,salt:$salt,password_hash:$hash,created_at:$now,updated_at:$now}]}' > /etc/vnstat-web/users.json
+jq -n --arg now "$AUTH_NOW" --arg user "$LOGIN_USER" --arg salt "$AUTH_SALT" --arg hash "$AUTH_HASH" '{users:[{username:$user,salt:$salt,password_hash:$hash,created_at:$now,updated_at:$now}]}' > "$AUTH_DIR/users.json"
 printf '{"session_ttl_seconds":43200,"max_login_failures":5}
 ' > /etc/vnstat-web/auth.json
 printf 'username=%s
