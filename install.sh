@@ -115,12 +115,17 @@ MAX_WEB_SIZE_MB=100
 EOF
 
 log "安装并启用 lighttpd /vnstat/ alias..."
-# 只使用 alias 方案：不再安装 99-vnstat-web.conf（避免冲突/改 document-root）
+# 清理旧配置
+rm -f /etc/lighttpd/conf-enabled/50-vnstat-alias.conf /etc/lighttpd/conf-available/50-vnstat-alias.conf
+rm -f /etc/lighttpd/conf-enabled/51-vnstat-root-redirect.conf /etc/lighttpd/conf-available/51-vnstat-root-redirect.conf
+
 install -m 644 "$BASE_DIR/lighttpd/50-vnstat-alias.conf" /etc/lighttpd/conf-available/50-vnstat-alias.conf
 ln -sf /etc/lighttpd/conf-available/50-vnstat-alias.conf /etc/lighttpd/conf-enabled/50-vnstat-alias.conf
-rm -f /etc/lighttpd/conf-enabled/51-vnstat-root-redirect.conf /etc/lighttpd/conf-available/51-vnstat-root-redirect.conf
-install -m 644 "$BASE_DIR/lighttpd/51-vnstat-root-redirect.conf" /etc/lighttpd/conf-available/51-vnstat-root-redirect.conf
-ln -sf /etc/lighttpd/conf-available/51-vnstat-root-redirect.conf /etc/lighttpd/conf-enabled/51-vnstat-root-redirect.conf
+
+if [[ -f "$BASE_DIR/lighttpd/51-vnstat-root-redirect.conf" ]]; then
+  install -m 644 "$BASE_DIR/lighttpd/51-vnstat-root-redirect.conf" /etc/lighttpd/conf-available/51-vnstat-root-redirect.conf
+  ln -sf /etc/lighttpd/conf-available/51-vnstat-root-redirect.conf /etc/lighttpd/conf-enabled/51-vnstat-root-redirect.conf
+fi
 
 # （可选）nocache 配置：存在就启用，不存在就跳过
 if [[ -f "$BASE_DIR/lighttpd/98-vnstat-web-nocache.conf" ]]; then
@@ -137,11 +142,11 @@ else
 fi
 
 log "语法检查..."
-lighttpd -tt -f /etc/lighttpd/lighttpd.conf
+lighttpd -tt -f /etc/lighttpd/lighttpd.conf || die "lighttpd 配置检查失败"
 
 log "重启 lighttpd..."
 systemctl enable --now lighttpd >/dev/null 2>&1 || true
-systemctl restart lighttpd
+systemctl restart lighttpd || die "lighttpd 启动失败"
 
 log "安装 vnstat-web-update..."
 install -m 755 "$BASE_DIR/scripts/vnstat-web-update.sh" /usr/local/bin/vnstat-web-update.sh
