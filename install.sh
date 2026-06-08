@@ -190,6 +190,7 @@ chmod 755 /usr/local/lib/vnstat-web-auth-lib.sh
 
 # 创建和修复认证相关目录
 mkdir -p /var/lib/vnstat-web/auth/{sessions,fails}
+mkdir -p /etc/vnstat-web
 touch /var/log/vnstat-web-auth.log
 chown -R root:"$WEB_GROUP" /var/lib/vnstat-web /etc/vnstat-web /var/log/vnstat-web-auth.log
 chmod 775 /var/lib/vnstat-web
@@ -199,7 +200,6 @@ chmod 2775 /var/lib/vnstat-web/auth/fails
 chmod 664 /var/log/vnstat-web-auth.log
 
 # 创建和修复认证配置目录
-mkdir -p /etc/vnstat-web
 chmod 2775 /etc/vnstat-web
 
 log "创建快捷管理命令: vn"
