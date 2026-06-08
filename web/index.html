@@ -1244,14 +1244,25 @@
   function getSessionToken(){ return localStorage.getItem(SESSION_KEY) || ""; }
   function setSessionToken(t){ if(t) localStorage.setItem(SESSION_KEY,t); else localStorage.removeItem(SESSION_KEY); }
 
+  async function fetchJsonOrThrow(url, payload){
+    const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json','X-Session-Token':getSessionToken()}, body:JSON.stringify({...payload, session_token:getSessionToken()})});
+    const raw = await r.text();
+    let data = null;
+    try { data = raw ? JSON.parse(raw) : null; } catch (e) {}
+    if (!r.ok) {
+      const msg = (data && (data.err || data.message)) || raw || (`HTTP ${r.status}`);
+      throw new Error(msg);
+    }
+    if (!data) throw new Error('接口返回了无效响应');
+    return data;
+  }
+
   async function authApi(payload){
-    const r = await fetch(AUTH_API, {method:'POST', headers:{'Content-Type':'application/json','X-Session-Token':getSessionToken()}, body:JSON.stringify({...payload, session_token:getSessionToken()})});
-    return await r.json();
+    return await fetchJsonOrThrow(AUTH_API, payload);
   }
 
   async function adminApi(payload){
-    const r = await fetch(ADMIN_API, {method:'POST', headers:{'Content-Type':'application/json','X-Session-Token':getSessionToken()}, body:JSON.stringify({...payload, session_token:getSessionToken()})});
-    return await r.json();
+    return await fetchJsonOrThrow(ADMIN_API, payload);
   }
 
   async function ensureLogin(){
