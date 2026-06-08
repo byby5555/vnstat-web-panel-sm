@@ -46,6 +46,18 @@ PORT="${PORT:-$DEFAULT_PORT}"
 
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+detect_web_group(){
+  local candidates=(www-data lighttpd http apache nginx)
+  local g
+  for g in "${candidates[@]}"; do
+    if getent group "$g" >/dev/null 2>&1; then
+      echo "$g"
+      return 0
+    fi
+  done
+  echo "root"
+}
+
 gen_strong_password(){
   local raw pass
   raw="$(openssl rand -base64 64 2>/dev/null || head -c 64 /dev/urandom | base64)"
@@ -158,6 +170,7 @@ log "安装认证与安全管理组件..."
 install -d -m 755 /usr/local/lib
 install -m 755 "$BASE_DIR/scripts/vnstat-web-auth-lib.sh" /usr/local/lib/vnstat-web-auth-lib.sh
 install -m 755 "$BASE_DIR/scripts/vnstat-web-admin.sh" /usr/local/bin/vnstat-web-admin.sh
+install -m 755 "$BASE_DIR/uninstall.sh" /usr/local/bin/vnstat-web-uninstall.sh
 install -d -m 755 /usr/lib/cgi-bin
 install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-config.cgi" /usr/lib/cgi-bin/vnstat-web-config.cgi
 install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-auth.cgi" /usr/lib/cgi-bin/vnstat-web-auth.cgi
@@ -165,6 +178,7 @@ install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-admin.cgi" /usr/lib/cgi-bin/vnstat-
 install -m 755 "$BASE_DIR/cgi-bin/vnstat-web-data.cgi" /usr/lib/cgi-bin/vnstat-web-data.cgi
 
 log "修复权限和创建必要目录..."
+WEB_GROUP="$(detect_web_group)"
 # 确保 CGI 脚本权限正确
 chmod 755 /usr/lib/cgi-bin/vnstat-web-auth.cgi
 chmod 755 /usr/lib/cgi-bin/vnstat-web-data.cgi
@@ -176,14 +190,17 @@ chmod 755 /usr/local/lib/vnstat-web-auth-lib.sh
 
 # 创建和修复认证相关目录
 mkdir -p /var/lib/vnstat-web/auth/{sessions,fails}
-chmod 755 /var/lib/vnstat-web
-chmod 755 /var/lib/vnstat-web/auth
-chmod 755 /var/lib/vnstat-web/auth/sessions
-chmod 755 /var/lib/vnstat-web/auth/fails
+touch /var/log/vnstat-web-auth.log
+chown -R root:"$WEB_GROUP" /var/lib/vnstat-web /etc/vnstat-web /var/log/vnstat-web-auth.log
+chmod 775 /var/lib/vnstat-web
+chmod 2775 /var/lib/vnstat-web/auth
+chmod 2775 /var/lib/vnstat-web/auth/sessions
+chmod 2775 /var/lib/vnstat-web/auth/fails
+chmod 664 /var/log/vnstat-web-auth.log
 
 # 创建和修复认证配置目录
 mkdir -p /etc/vnstat-web
-chmod 755 /etc/vnstat-web
+chmod 2775 /etc/vnstat-web
 
 log "创建快捷管理命令: vn"
 cat > /usr/local/bin/vn <<'EOS'
@@ -209,6 +226,8 @@ password=%s
 created_at=%s
 ' "$LOGIN_USER" "$LOGIN_PASS" "$AUTH_NOW" > /root/vnstat-web-login.txt
 chmod 600 /root/vnstat-web-login.txt
+chown root:"$WEB_GROUP" "$AUTH_DIR/users.json" /etc/vnstat-web/auth.json
+chmod 664 "$AUTH_DIR/users.json" /etc/vnstat-web/auth.json
 
 
 log "生成初始数据文件..."

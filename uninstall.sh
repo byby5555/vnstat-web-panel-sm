@@ -45,6 +45,7 @@ rm -f /usr/lib/cgi-bin/vnstat-web-data.cgi
 rm -f /usr/local/bin/vnstat-web-update.sh
 rm -f /usr/local/bin/vnstat-quota-check.sh
 rm -f /usr/local/bin/vnstat-web-admin.sh
+rm -f /usr/local/bin/vnstat-web-uninstall.sh
 rm -f /usr/local/bin/vn
 rm -f /usr/local/lib/vnstat-web-auth-lib.sh
 

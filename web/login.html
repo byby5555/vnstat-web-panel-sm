@@ -37,7 +37,15 @@ function setToken(t){ if(t) localStorage.setItem(SESSION_KEY,t); else localStora
 
 async function auth(payload){
   const r=await fetch(AUTH_API,{method:'POST',headers:{'Content-Type':'application/json','X-Session-Token':getToken()},body:JSON.stringify({...payload,session_token:getToken()})});
-  return await r.json();
+  const raw=await r.text();
+  let data=null;
+  try{ data=raw ? JSON.parse(raw) : null; }catch(e){}
+  if(!r.ok){
+    const msg=(data && (data.err || data.message)) || raw || (`HTTP ${r.status}`);
+    throw new Error(msg);
+  }
+  if(!data) throw new Error('认证接口返回了无效响应');
+  return data;
 }
 
 (async ()=>{
@@ -62,7 +70,7 @@ document.getElementById('btnLogin').onclick=async ()=>{
       err.textContent='登录失败：'+(j.err||'unknown');
     }
   }catch(e){
-    err.textContent='登录失败：网络异常';
+    err.textContent='登录失败：'+(e && e.message ? e.message : '网络异常');
   }
 };
 </script>

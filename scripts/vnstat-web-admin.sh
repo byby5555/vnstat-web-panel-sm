@@ -121,10 +121,12 @@ run_uninstall(){
   read -r -p "确认卸载 vnstat-web? [y/N]: " ans
   case "$ans" in
     y|Y|yes|YES)
-      if [[ -f ./uninstall.sh ]]; then
-        bash ./uninstall.sh
+      if [[ -x /usr/local/bin/vnstat-web-uninstall.sh ]]; then
+        /usr/local/bin/vnstat-web-uninstall.sh
+      elif [[ -f "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/uninstall.sh" ]]; then
+        bash "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/uninstall.sh"
       else
-        echo "当前目录未找到 uninstall.sh，请先切换到仓库目录执行。"
+        echo "未找到卸载脚本，请重新下载安装或手动执行仓库中的 uninstall.sh。"
       fi
       ;;
     *) echo "已取消" ;;
