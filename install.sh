@@ -127,6 +127,9 @@ MAX_WEB_SIZE_MB=100
 EOF
 
 log "安装并启用 lighttpd /vnstat/ alias..."
+if command -v lighty-enable-mod >/dev/null 2>&1; then
+  lighty-enable-mod alias redirect cgi >/dev/null 2>&1 || true
+fi
 # 清理旧配置
 rm -f /etc/lighttpd/conf-enabled/50-vnstat-alias.conf /etc/lighttpd/conf-available/50-vnstat-alias.conf
 rm -f /etc/lighttpd/conf-enabled/51-vnstat-root-redirect.conf /etc/lighttpd/conf-available/51-vnstat-root-redirect.conf
