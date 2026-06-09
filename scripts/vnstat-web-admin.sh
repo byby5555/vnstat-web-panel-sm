@@ -117,6 +117,48 @@ restart_services(){
   echo "服务重启完成"
 }
 
+repair_lighttpd_main_conf(){
+  local conf="/etc/lighttpd/lighttpd.conf" backup
+  install -d -m 755 /etc/lighttpd/conf-enabled /etc/lighttpd/conf-available
+  if [[ -f "$conf" ]] && lighttpd -tt -f "$conf" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if [[ -f "$conf" ]]; then
+    backup="${conf}.bak.$(date +%Y%m%d%H%M%S)"
+    cp -a "$conf" "$backup"
+    echo "检测到 lighttpd 主配置损坏，已备份到 $backup 并重建最小配置"
+  else
+    echo "未找到 lighttpd 主配置，正在创建最小配置"
+  fi
+
+  cat > "$conf" <<'EOF_LIGHTTPD'
+server.modules = (
+  "mod_indexfile",
+  "mod_access",
+  "mod_alias",
+  "mod_redirect",
+  "mod_cgi"
+)
+
+server.document-root = "/var/www/html"
+server.upload-dirs = ( "/var/cache/lighttpd/uploads" )
+server.errorlog = "/var/log/lighttpd/error.log"
+server.pid-file = "/run/lighttpd.pid"
+server.username = "www-data"
+server.groupname = "www-data"
+server.port = 8888
+
+index-file.names = ( "index.html" )
+url.access-deny = ( "~", ".inc" )
+static-file.exclude-extensions = ( ".php", ".pl", ".fcgi", ".cgi" )
+
+include_shell "/usr/share/lighttpd/use-ipv6.pl " + server.port
+include_shell "/usr/share/lighttpd/create-mime.conf.pl"
+include "/etc/lighttpd/conf-enabled/*.conf"
+EOF_LIGHTTPD
+}
+
 run_update_installation(){
   local repo_owner="byby5555" repo_name="vnstat-web-panel-sm" repo_branch="main"
   local tmp repo_dir conf="/etc/vnstat-web.conf" port="8888" web_root="/var/www/vnstat-web"
@@ -185,6 +227,7 @@ EOS
   chmod 755 /usr/local/bin/vn
 
   echo "更新 lighttpd 配置..."
+  repair_lighttpd_main_conf
   if command -v lighty-enable-mod >/dev/null 2>&1; then
     lighty-enable-mod alias redirect cgi >/dev/null 2>&1 || true
   fi
