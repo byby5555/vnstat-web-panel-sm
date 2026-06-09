@@ -8,6 +8,42 @@ LIB="/usr/local/lib/vnstat-web-auth-lib.sh"
 
 ensure_auth_files
 
+LOGIN_INFO_FILE="/root/vnstat-web-login.txt"
+LOGIN_INFO_BACKUP="/etc/vnstat-web/login.txt"
+
+persist_login_file(){
+  local u="$1" p="$2" now tmp
+  now="$(date -Is)"
+  tmp="$(mktemp)"
+  printf 'username=%s\npassword=%s\ncreated_at=%s\n' "$u" "$p" "$now" > "$tmp"
+  install -m 600 "$tmp" "$LOGIN_INFO_FILE"
+  install -m 600 "$tmp" "$LOGIN_INFO_BACKUP"
+  rm -f "$tmp"
+}
+
+show_login_file(){
+  local f="$1"
+  echo "登录信息文件: $f"
+  if [[ -f "$f" ]]; then
+    cat "$f"
+  else
+    echo "文件不存在"
+  fi
+}
+
+show_current_login_info(){
+  local u
+  u="$(jq -r '.users[0].username // empty' "$USERS_FILE" 2>/dev/null || true)"
+  echo "当前登录用户名: ${u:-未知}"
+  echo "当前密码只能在创建/修改/重置时保存，无法从哈希反推出。"
+  echo
+  show_login_file "$LOGIN_INFO_FILE"
+  echo
+  show_login_file "$LOGIN_INFO_BACKUP"
+  echo
+  echo "如果两个文件都没有密码，请在菜单选择 6 或 7 重置密码/账号。"
+}
+
 gen_strong_password(){
   local raw p
   raw="$(openssl rand -base64 64 2>/dev/null || head -c 64 /dev/urandom | base64)"
@@ -18,13 +54,6 @@ gen_strong_password(){
 
 gen_username(){
   echo "vn$(rand_hex 3)"
-}
-
-persist_login_file(){
-  local u="$1" p="$2" now
-  now="$(date -Is)"
-  printf 'username=%s\npassword=%s\ncreated_at=%s\n' "$u" "$p" "$now" > /root/vnstat-web-login.txt
-  chmod 600 /root/vnstat-web-login.txt
 }
 
 show_users(){
@@ -71,6 +100,7 @@ change_password(){
   read -r -s -p "输入新密码(留空自动生成强密码): " p; echo
   [[ -n "$p" ]] || p="$(gen_strong_password)"
   set_user_password "$u" "$p"
+  persist_login_file "$u" "$p"
   echo "密码已更新: $u"
   echo "新密码: $p"
 }
@@ -84,6 +114,7 @@ reset_user_password(){
   local p
   p="$(gen_strong_password)"
   set_user_password "$u" "$p"
+  persist_login_file "$u" "$p"
   echo "已重置用户密码: $u"
   echo "新密码: $p"
 }
@@ -105,8 +136,7 @@ reset_login_account(){
 }
 
 show_login_hint(){
-  echo "登录信息文件: /root/vnstat-web-login.txt"
-  [[ -f /root/vnstat-web-login.txt ]] && cat /root/vnstat-web-login.txt || echo "文件不存在"
+  show_current_login_info
 }
 
 restart_services(){

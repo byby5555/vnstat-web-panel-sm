@@ -56,6 +56,7 @@ rm -rf /etc/vnstat-web
 rm -rf /var/lib/vnstat-web/auth
 rm -f /var/log/vnstat-web-auth.log
 rm -f /root/vnstat-web-login.txt
+rm -f /etc/vnstat-web/login.txt
 
 log "重启 lighttpd（如果已安装）..."
 if command -v lighttpd >/dev/null 2>&1; then
