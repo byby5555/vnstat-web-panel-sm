@@ -117,6 +117,85 @@ restart_services(){
   echo "服务重启完成"
 }
 
+clean_generated_files(){
+  local conf="/etc/vnstat-web.conf" web_root="/var/www/vnstat-web" size_before size_after
+  if [[ -f "$conf" ]]; then
+    # shellcheck disable=SC1090
+    . "$conf"
+    web_root="${WEB_ROOT:-${WEB_PATH:-$web_root}}"
+  fi
+
+  echo "将清理网页生成文件，不会删除 vnStat 原始历史数据库。"
+  echo "网页目录: $web_root"
+  if [[ ! -d "$web_root" ]]; then
+    echo "网页目录不存在，跳过。"
+    return
+  fi
+
+  size_before="$(du -sh "$web_root" 2>/dev/null | awk '{print $1}')"
+  echo "当前大小: ${size_before:-未知}"
+  read -r -p "确认清理网页生成文件? [y/N]: " ans
+  case "$ans" in
+    y|Y|yes|YES)
+      find "$web_root" -maxdepth 1 -type f \( \
+        -name '*.json' -o -name '*.txt' -o -name '*.png' -o -name '*.tmp' \
+      \) -delete
+      if [[ -x /usr/local/bin/vnstat-web-update.sh ]]; then
+        /usr/local/bin/vnstat-web-update.sh || true
+      fi
+      size_after="$(du -sh "$web_root" 2>/dev/null | awk '{print $1}')"
+      echo "清理完成，当前大小: ${size_after:-未知}"
+      ;;
+    *) echo "已取消" ;;
+  esac
+}
+
+clean_auth_runtime(){
+  echo "将清理登录会话、失败计数和封锁记录，不会修改用户名/密码。"
+  read -r -p "确认清理认证运行状态? [y/N]: " ans
+  case "$ans" in
+    y|Y|yes|YES)
+      rm -rf /var/lib/vnstat-web/auth/sessions/* /var/lib/vnstat-web/auth/fails/* 2>/dev/null || true
+      printf '{}\n' > /var/lib/vnstat-web/auth/blocked.json
+      echo "认证运行状态已清理"
+      ;;
+    *) echo "已取消" ;;
+  esac
+}
+
+reset_vnstat_database(){
+  echo "危险操作：这会删除 /var/lib/vnstat 下的 vnStat 原始历史数据库。"
+  echo "删除后流量统计会重新开始，历史数据不可恢复。"
+  read -r -p "如确认重置，请输入 DELETE: " ans
+  [[ "$ans" == "DELETE" ]] || { echo "已取消"; return; }
+  systemctl stop vnstat 2>/dev/null || true
+  rm -rf /var/lib/vnstat/*
+  systemctl start vnstat 2>/dev/null || true
+  if [[ -x /usr/local/bin/vnstat-web-update.sh ]]; then
+    /usr/local/bin/vnstat-web-update.sh || true
+  fi
+  echo "vnStat 数据库已重置"
+}
+
+run_clean_menu(){
+  while true; do
+    echo
+    echo "===== vnstat-web 清理菜单 ====="
+    echo "1) 清理网页生成文件(json/txt/png)"
+    echo "2) 清理登录会话/封锁记录"
+    echo "3) 重置 vnStat 原始历史数据库(危险)"
+    echo "0) 返回"
+    read -r -p "请选择: " c
+    case "$c" in
+      1) clean_generated_files ;;
+      2) clean_auth_runtime ;;
+      3) reset_vnstat_database ;;
+      0) return ;;
+      *) echo "无效选项" ;;
+    esac
+  done
+}
+
 run_uninstall(){
   read -r -p "确认卸载 vnstat-web? [y/N]: " ans
   case "$ans" in
@@ -133,6 +212,11 @@ run_uninstall(){
   esac
 }
 
+if [[ "${1:-}" == "clean" ]]; then
+  run_clean_menu
+  exit 0
+fi
+
 while true; do
   echo
   echo "===== vnstat-web 安全管理 ====="
@@ -145,7 +229,8 @@ while true; do
   echo "7) 重置登录账号(自动新用户名+强密码)"
   echo "8) 查看登录信息"
   echo "9) 重启服务"
-  echo "10) 卸载 vnstat-web"
+  echo "10) 清理数据/缓存"
+  echo "11) 卸载 vnstat-web"
   echo "0) 退出"
   read -r -p "请选择: " c
   case "$c" in
@@ -158,7 +243,8 @@ while true; do
     7) reset_login_account ;;
     8) show_login_hint ;;
     9) restart_services ;;
-    10) run_uninstall ;;
+    10) run_clean_menu ;;
+    11) run_uninstall ;;
     0) exit 0 ;;
     *) echo "无效选项" ;;
   esac
