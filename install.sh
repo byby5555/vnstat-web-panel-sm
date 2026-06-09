@@ -100,6 +100,18 @@ include "/etc/lighttpd/conf-enabled/*.conf"
 EOF_LIGHTTPD
 }
 
+LOGIN_INFO_FILE="/root/vnstat-web-login.txt"
+LOGIN_INFO_BACKUP="/etc/vnstat-web/login.txt"
+
+write_login_info(){
+  local username="$1" password="$2" created_at="$3" tmp
+  tmp="$(mktemp)"
+  printf 'username=%s\npassword=%s\ncreated_at=%s\n' "$username" "$password" "$created_at" > "$tmp"
+  install -m 600 "$tmp" "$LOGIN_INFO_FILE"
+  install -m 600 "$tmp" "$LOGIN_INFO_BACKUP"
+  rm -f "$tmp"
+}
+
 gen_strong_password(){
   local raw pass
   raw="$(openssl rand -base64 64 2>/dev/null || head -c 64 /dev/urandom | base64)"
@@ -267,11 +279,7 @@ umask 027
 jq -n --arg now "$AUTH_NOW" --arg user "$LOGIN_USER" --arg salt "$AUTH_SALT" --arg hash "$AUTH_HASH" '{users:[{username:$user,salt:$salt,password_hash:$hash,created_at:$now,updated_at:$now}]}' > "$AUTH_DIR/users.json"
 printf '{"session_ttl_seconds":43200,"max_login_failures":5}
 ' > /etc/vnstat-web/auth.json
-printf 'username=%s
-password=%s
-created_at=%s
-' "$LOGIN_USER" "$LOGIN_PASS" "$AUTH_NOW" > /root/vnstat-web-login.txt
-chmod 600 /root/vnstat-web-login.txt
+write_login_info "$LOGIN_USER" "$LOGIN_PASS" "$AUTH_NOW"
 chown root:"$WEB_GROUP" "$AUTH_DIR/users.json" /etc/vnstat-web/auth.json
 chmod 664 "$AUTH_DIR/users.json" /etc/vnstat-web/auth.json
 
@@ -299,6 +307,7 @@ echo "Token 已保存：${TOKEN_FILE}"
 echo "Web 登录账号：${LOGIN_USER}"
 echo "Web 登录密码：${LOGIN_PASS}"
 echo "登录信息文件：/root/vnstat-web-login.txt"
+echo "登录信息备份：/etc/vnstat-web/login.txt"
 echo "管理菜单命令：vn"
 echo
 echo "服务器IP：${SERVER_IPS:-请用 ip a 查看}"
