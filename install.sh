@@ -58,6 +58,48 @@ detect_web_group(){
   echo "root"
 }
 
+repair_lighttpd_main_conf(){
+  local conf="/etc/lighttpd/lighttpd.conf" backup
+  install -d -m 755 /etc/lighttpd/conf-enabled /etc/lighttpd/conf-available
+  if [[ -f "$conf" ]] && lighttpd -tt -f "$conf" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if [[ -f "$conf" ]]; then
+    backup="${conf}.bak.$(date +%Y%m%d%H%M%S)"
+    cp -a "$conf" "$backup"
+    log "检测到 lighttpd 主配置损坏，已备份到 $backup 并重建最小配置"
+  else
+    log "未找到 lighttpd 主配置，正在创建最小配置"
+  fi
+
+  cat > "$conf" <<'EOF_LIGHTTPD'
+server.modules = (
+  "mod_indexfile",
+  "mod_access",
+  "mod_alias",
+  "mod_redirect",
+  "mod_cgi"
+)
+
+server.document-root = "/var/www/html"
+server.upload-dirs = ( "/var/cache/lighttpd/uploads" )
+server.errorlog = "/var/log/lighttpd/error.log"
+server.pid-file = "/run/lighttpd.pid"
+server.username = "www-data"
+server.groupname = "www-data"
+server.port = 8888
+
+index-file.names = ( "index.html" )
+url.access-deny = ( "~", ".inc" )
+static-file.exclude-extensions = ( ".php", ".pl", ".fcgi", ".cgi" )
+
+include_shell "/usr/share/lighttpd/use-ipv6.pl " + server.port
+include_shell "/usr/share/lighttpd/create-mime.conf.pl"
+include "/etc/lighttpd/conf-enabled/*.conf"
+EOF_LIGHTTPD
+}
+
 gen_strong_password(){
   local raw pass
   raw="$(openssl rand -base64 64 2>/dev/null || head -c 64 /dev/urandom | base64)"
@@ -127,6 +169,7 @@ MAX_WEB_SIZE_MB=100
 EOF
 
 log "安装并启用 lighttpd /vnstat/ alias..."
+repair_lighttpd_main_conf
 if command -v lighty-enable-mod >/dev/null 2>&1; then
   lighty-enable-mod alias redirect cgi >/dev/null 2>&1 || true
 fi
