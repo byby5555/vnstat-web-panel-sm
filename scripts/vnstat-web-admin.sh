@@ -147,6 +147,17 @@ restart_services(){
   echo "服务重启完成"
 }
 
+find_downloaded_repo_dir(){
+  local root="$1" candidate
+  while IFS= read -r candidate; do
+    if [[ -d "$candidate/web" && -d "$candidate/scripts" && -d "$candidate/cgi-bin" && -f "$candidate/install.sh" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done < <(find "$root" -maxdepth 3 -type f -name install.sh -exec dirname {} \; | sort)
+  return 1
+}
+
 repair_lighttpd_main_conf(){
   local conf="/etc/lighttpd/lighttpd.conf" backup
   install -d -m 755 /etc/lighttpd/conf-enabled /etc/lighttpd/conf-available
@@ -212,8 +223,12 @@ run_update_installation(){
   apt-get install -y curl ca-certificates tar jq >/dev/null 2>&1 || true
   curl -fsSL "https://codeload.github.com/${repo_owner}/${repo_name}/tar.gz/refs/heads/${repo_branch}" -o "$tmp/repo.tgz" || { echo "下载失败"; return 1; }
   tar -xzf "$tmp/repo.tgz" -C "$tmp" || { echo "解压失败"; return 1; }
-  repo_dir="$(find "$tmp" -maxdepth 1 -type d -name "${repo_name}-*" | head -n 1)"
-  [[ -n "${repo_dir:-}" ]] || { echo "未找到解压后的仓库目录"; return 1; }
+  repo_dir="$(find_downloaded_repo_dir "$tmp" || true)"
+  if [[ -z "${repo_dir:-}" ]]; then
+    echo "未找到有效仓库目录（缺少 web/scripts/cgi-bin/install.sh）。解压内容如下："
+    find "$tmp" -maxdepth 3 -mindepth 1 | sort || true
+    return 1
+  fi
 
   echo "验证脚本语法..."
   bash -n "$repo_dir/install.sh" || return 1

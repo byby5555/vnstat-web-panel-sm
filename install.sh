@@ -10,6 +10,17 @@ ok(){  echo -e "✅ $*"; }
 err(){ echo -e "❌ $*" >&2; }
 die(){ err "$*"; exit 1; }
 
+find_repo_dir(){
+  local root="$1" candidate
+  while IFS= read -r candidate; do
+    if [[ -d "$candidate/web" && -d "$candidate/scripts" && -d "$candidate/cgi-bin" && -f "$candidate/install.sh" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done < <(find "$root" -maxdepth 3 -type f -name install.sh -exec dirname {} \; | sort)
+  return 1
+}
+
 # ===== BOOTSTRAP: support `bash <(curl ...)` =====
 self_path="${BASH_SOURCE[0]:-}"
 self_dir="$(cd "$(dirname "$self_path")" 2>/dev/null && pwd || true)"
@@ -30,8 +41,11 @@ if [[ "$need_bootstrap" == "1" ]]; then
   apt-get install -y curl ca-certificates tar >/dev/null 2>&1 || true
   curl -fsSL "$url" -o "$tmp/repo.tgz" || die "下载仓库失败：$url"
   tar -xzf "$tmp/repo.tgz" -C "$tmp" || die "解压仓库失败"
-  repo_dir="$(find "$tmp" -maxdepth 1 -type d -name "${REPO_NAME}-*" | head -n 1)"
-  [[ -n "${repo_dir:-}" ]] || die "未找到解压后的仓库目录"
+  repo_dir="$(find_repo_dir "$tmp" || true)"
+  if [[ -z "${repo_dir:-}" ]]; then
+    find "$tmp" -maxdepth 3 -mindepth 1 | sort >&2 || true
+    die "未找到有效仓库目录（缺少 web/scripts/cgi-bin/install.sh）"
+  fi
   exec bash "$repo_dir/install.sh" "$@"
 fi
 # ===== END BOOTSTRAP =====
