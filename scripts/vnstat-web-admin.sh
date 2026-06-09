@@ -117,6 +117,115 @@ restart_services(){
   echo "服务重启完成"
 }
 
+run_update_installation(){
+  local repo_owner="byby5555" repo_name="vnstat-web-panel-sm" repo_branch="main"
+  local tmp repo_dir conf="/etc/vnstat-web.conf" port="8888" web_root="/var/www/vnstat-web"
+  local auth_code home_code
+
+  [[ "${EUID:-$(id -u)}" -eq 0 ]] || { echo "请用 root 运行更新。"; return 1; }
+
+  echo "将从 GitHub main 更新 vnstat-web 已安装文件。"
+  echo "不会重置登录账号、密码、/etc/vnstat-web.conf 或 vnStat 历史数据库。"
+  read -r -p "确认更新? [y/N]: " ans
+  case "$ans" in
+    y|Y|yes|YES) ;;
+    *) echo "已取消"; return 0 ;;
+  esac
+
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' RETURN
+
+  echo "下载最新版本..."
+  apt-get update -y >/dev/null 2>&1 || true
+  apt-get install -y curl ca-certificates tar jq >/dev/null 2>&1 || true
+  curl -fsSL "https://codeload.github.com/${repo_owner}/${repo_name}/tar.gz/refs/heads/${repo_branch}" -o "$tmp/repo.tgz" || { echo "下载失败"; return 1; }
+  tar -xzf "$tmp/repo.tgz" -C "$tmp" || { echo "解压失败"; return 1; }
+  repo_dir="$(find "$tmp" -maxdepth 1 -type d -name "${repo_name}-*" | head -n 1)"
+  [[ -n "${repo_dir:-}" ]] || { echo "未找到解压后的仓库目录"; return 1; }
+
+  echo "验证脚本语法..."
+  bash -n "$repo_dir/install.sh" || return 1
+  bash -n "$repo_dir/uninstall.sh" || return 1
+  bash -n "$repo_dir/scripts/vnstat-web-update.sh" || return 1
+  bash -n "$repo_dir/scripts/vnstat-quota-check.sh" || return 1
+  bash -n "$repo_dir/scripts/vnstat-web-auth-lib.sh" || return 1
+  bash -n "$repo_dir/scripts/vnstat-web-admin.sh" || return 1
+  bash -n "$repo_dir/cgi-bin/vnstat-web-auth.cgi" || return 1
+  bash -n "$repo_dir/cgi-bin/vnstat-web-admin.cgi" || return 1
+  bash -n "$repo_dir/cgi-bin/vnstat-web-config.cgi" || return 1
+  bash -n "$repo_dir/cgi-bin/vnstat-web-data.cgi" || return 1
+
+  if [[ -f "$conf" ]]; then
+    # shellcheck disable=SC1090
+    . "$conf"
+    port="${PORT:-$port}"
+    web_root="${WEB_ROOT:-${WEB_PATH:-$web_root}}"
+  fi
+
+  echo "更新 Web 文件..."
+  install -d -m 755 "$web_root"
+  cp -a "$repo_dir/web/." "$web_root/"
+
+  echo "更新脚本、CGI 与管理组件..."
+  install -d -m 755 /usr/local/lib /usr/local/bin /usr/lib/cgi-bin
+  install -m 755 "$repo_dir/scripts/vnstat-web-update.sh" /usr/local/bin/vnstat-web-update.sh
+  install -m 755 "$repo_dir/scripts/vnstat-quota-check.sh" /usr/local/bin/vnstat-quota-check.sh
+  install -m 755 "$repo_dir/scripts/vnstat-web-auth-lib.sh" /usr/local/lib/vnstat-web-auth-lib.sh
+  install -m 755 "$repo_dir/scripts/vnstat-web-admin.sh" /usr/local/bin/vnstat-web-admin.sh
+  install -m 755 "$repo_dir/uninstall.sh" /usr/local/bin/vnstat-web-uninstall.sh
+  install -m 755 "$repo_dir/cgi-bin/vnstat-web-config.cgi" /usr/lib/cgi-bin/vnstat-web-config.cgi
+  install -m 755 "$repo_dir/cgi-bin/vnstat-web-auth.cgi" /usr/lib/cgi-bin/vnstat-web-auth.cgi
+  install -m 755 "$repo_dir/cgi-bin/vnstat-web-admin.cgi" /usr/lib/cgi-bin/vnstat-web-admin.cgi
+  install -m 755 "$repo_dir/cgi-bin/vnstat-web-data.cgi" /usr/lib/cgi-bin/vnstat-web-data.cgi
+
+  cat > /usr/local/bin/vn <<'EOS'
+#!/usr/bin/env bash
+exec /usr/local/bin/vnstat-web-admin.sh "$@"
+EOS
+  chmod 755 /usr/local/bin/vn
+
+  echo "更新 lighttpd 配置..."
+  if command -v lighty-enable-mod >/dev/null 2>&1; then
+    lighty-enable-mod alias redirect cgi >/dev/null 2>&1 || true
+  fi
+  install -m 644 "$repo_dir/lighttpd/50-vnstat-alias.conf" /etc/lighttpd/conf-available/50-vnstat-alias.conf
+  ln -sf /etc/lighttpd/conf-available/50-vnstat-alias.conf /etc/lighttpd/conf-enabled/50-vnstat-alias.conf
+  if [[ -f "$repo_dir/lighttpd/51-vnstat-root-redirect.conf" ]]; then
+    install -m 644 "$repo_dir/lighttpd/51-vnstat-root-redirect.conf" /etc/lighttpd/conf-available/51-vnstat-root-redirect.conf
+    ln -sf /etc/lighttpd/conf-available/51-vnstat-root-redirect.conf /etc/lighttpd/conf-enabled/51-vnstat-root-redirect.conf
+  fi
+  if [[ -f "$repo_dir/lighttpd/98-vnstat-web-nocache.conf" ]]; then
+    install -m 644 "$repo_dir/lighttpd/98-vnstat-web-nocache.conf" /etc/lighttpd/conf-available/98-vnstat-web-nocache.conf
+    ln -sf /etc/lighttpd/conf-available/98-vnstat-web-nocache.conf /etc/lighttpd/conf-enabled/98-vnstat-web-nocache.conf
+  fi
+  lighttpd -tt -f /etc/lighttpd/lighttpd.conf || return 1
+
+  if [[ -d "$repo_dir/systemd" ]]; then
+    cp -a "$repo_dir/systemd/"* /etc/systemd/system/ || true
+    systemctl daemon-reload
+    systemctl enable --now vnstat-web-update.timer >/dev/null 2>&1 || true
+  fi
+
+  echo "生成最新数据..."
+  /usr/local/bin/vnstat-web-update.sh || return 1
+
+  echo "重启程序和服务..."
+  restart_services
+
+  echo "验证 HTTP 与认证接口..."
+  home_code="$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${port}/" || true)"
+  auth_code="$(curl -s -o /tmp/vnstat-web-auth-check.json -w "%{http_code}" -X POST "http://127.0.0.1:${port}/cgi-bin/vnstat-web-auth.cgi" -H 'Content-Type: application/json' --data '{"action":"status"}' || true)"
+  echo "首页 HTTP: $home_code"
+  echo "认证接口 HTTP: $auth_code"
+  if [[ "$auth_code" != "200" ]] || ! jq -e '.ok == true' /tmp/vnstat-web-auth-check.json >/dev/null 2>&1; then
+    echo "认证接口验证失败："
+    cat /tmp/vnstat-web-auth-check.json 2>/dev/null || true
+    return 1
+  fi
+
+  echo "更新完成并验证通过"
+}
+
 clean_generated_files(){
   local conf="/etc/vnstat-web.conf" web_root="/var/www/vnstat-web" size_before size_after
   if [[ -f "$conf" ]]; then
@@ -217,6 +326,11 @@ if [[ "${1:-}" == "clean" ]]; then
   exit 0
 fi
 
+if [[ "${1:-}" == "update" ]]; then
+  run_update_installation
+  exit $?
+fi
+
 while true; do
   echo
   echo "===== vnstat-web 安全管理 ====="
@@ -229,8 +343,9 @@ while true; do
   echo "7) 重置登录账号(自动新用户名+强密码)"
   echo "8) 查看登录信息"
   echo "9) 重启服务"
-  echo "10) 清理数据/缓存"
-  echo "11) 卸载 vnstat-web"
+  echo "10) 更新程序并验证"
+  echo "11) 清理数据/缓存"
+  echo "12) 卸载 vnstat-web"
   echo "0) 退出"
   read -r -p "请选择: " c
   case "$c" in
@@ -243,8 +358,9 @@ while true; do
     7) reset_login_account ;;
     8) show_login_hint ;;
     9) restart_services ;;
-    10) run_clean_menu ;;
-    11) run_uninstall ;;
+    10) run_update_installation ;;
+    11) run_clean_menu ;;
+    12) run_uninstall ;;
     0) exit 0 ;;
     *) echo "无效选项" ;;
   esac
