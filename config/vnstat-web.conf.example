@@ -8,3 +8,13 @@ FIVE_MIN_POINTS=288
 QUOTA_GB=1024
 ALERT_PCT=90
 DANGER_PCT=100
+
+# === VPS 标识（用于 TG 通知里的机器识别） ===
+# 建议命名为 "服务商-机房-编号"，如 HK-EN1-C、YXVM-HK-vol3U
+VPS_LABEL=
+# 国家/地区中文标签，如 香港、新加坡、日本、美国
+VPS_COUNTRY=
+# 区域/机房标签，如 CN-HK、SG-Singapore、JP-Tokyo
+VPS_REGION=
+# 公网 IPv4（install.sh 会自动探测，可手动覆盖）
+VPS_IP=

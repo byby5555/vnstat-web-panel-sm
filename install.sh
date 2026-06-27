@@ -175,6 +175,21 @@ if [[ -z "${QUOTA_TOKEN:-}" ]]; then
   printf "%s\n" "$QUOTA_TOKEN" > "$TOKEN_FILE"
 fi
 
+# 自动探测公网 IPv4（用于 TG 通知里标识机器）
+detect_vps_ip(){
+  local ip
+  # 优先用 default route 的源 IP（最像真实外网 IP）
+  ip="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '/src/ {for(i=1;i<=NF;i++) if($i=="src") print $(i+1); exit}')"
+  if [ -z "$ip" ] || [ "$ip" = "127.0.0.1" ]; then
+    # 退回 hostname -I 的第一个 IPv4
+    ip="$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9]+\.' | head -n1)"
+  fi
+  printf '%s' "$ip"
+}
+
+VPS_IP_DETECTED="$(detect_vps_ip)"
+[ -z "${VPS_IP_DETECTED:-}" ] && VPS_IP_DETECTED=""
+
 cat > /etc/vnstat-web.conf <<EOF
 IFACE=${IFACE_DETECTED:-eth0}
 WEB_ROOT=/var/www/vnstat-web
@@ -192,6 +207,11 @@ TG_BOT_TOKEN=
 TG_CHAT_ID=
 QUOTA_TOKEN=${QUOTA_TOKEN}
 MAX_WEB_SIZE_MB=100
+# VPS 标识（用于 TG 通知里标识机器，可手动编辑修改）
+VPS_LABEL=
+VPS_COUNTRY=
+VPS_REGION=
+VPS_IP=${VPS_IP_DETECTED}
 EOF
 
 # 验证配置确实写入了（避免 quota-check.sh 在 conf 缺失时永远静默退出）
