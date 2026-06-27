@@ -99,26 +99,6 @@ send_telegram(){
 # 内部日志（写到 LOG_FILE）
 log(){ printf '%s %s\n' "$(date -Is)" "$*" >> "$LOG_FILE" 2>/dev/null || true; }
 
-# 手动测试 TG：直接传 --test-tg 参数即可触发一次
-if [ "${1:-}" = "--test-tg" ]; then
-  if [ "$tg_enabled" != "1" ] || [ -z "$tg_bot_token" ] || [ -z "$tg_chat_id" ]; then
-    echo "TG 未配置：tg_enabled=${tg_enabled:-0}, token=${tg_bot_token:+set}, chat_id=${tg_chat_id:-empty}" >&2
-    exit 2
-  fi
-  text="🧪 *vnStat-quota-check TG 测试消息*
-
-$(vps_info)时间: $(date '+%F %T')"
-  send_telegram "$text" && echo "TG 测试成功" || echo "TG 测试失败（看日志）"
-  exit $?
-fi
-
-# ---------- 入口 ----------
-
-record_state(){
-  local level="$1"
-  printf "level=%s\ndate=%s\n" "$level" "$today" > "$STATE_FILE" 2>/dev/null || true
-}
-
 # 构造机器标识块（用于 TG 通知里说明哪台机器）
 vps_info(){
   local out=""
@@ -138,6 +118,26 @@ vps_info(){
     [ -n "$ip" ] && out+="IP: ${ip}\n"
   fi
   printf '%b' "$out"
+}
+
+# 手动测试 TG：直接传 --test-tg 参数即可触发一次
+if [ "${1:-}" = "--test-tg" ]; then
+  if [ "$tg_enabled" != "1" ] || [ -z "$tg_bot_token" ] || [ -z "$tg_chat_id" ]; then
+    echo "TG 未配置：tg_enabled=${tg_enabled:-0}, token=${tg_bot_token:+set}, chat_id=${tg_chat_id:-empty}" >&2
+    exit 2
+  fi
+  text="🧪 *vnStat-quota-check TG 测试消息*
+
+$(vps_info)时间: $(date '+%F %T')"
+  send_telegram "$text" && echo "TG 测试成功" || echo "TG 测试失败（看日志）"
+  exit $?
+fi
+
+# ---------- 入口 ----------
+
+record_state(){
+  local level="$1"
+  printf "level=%s\ndate=%s\n" "$level" "$today" > "$STATE_FILE" 2>/dev/null || true
 }
 
 if awk -v p="$pct" -v c="$shutdown_pct" 'BEGIN{exit !(p>=c)}'; then
