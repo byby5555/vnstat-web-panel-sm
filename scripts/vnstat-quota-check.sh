@@ -78,10 +78,39 @@ send_telegram(){
   if [ "$tg_enabled" != "1" ] || [ -z "$tg_bot_token" ] || [ -z "$tg_chat_id" ]; then
     return 0
   fi
-  curl -s -X POST "https://api.telegram.org/bot${tg_bot_token}/sendMessage" \
+  local resp http_code
+  resp=$(curl -sS -m 10 -w '\n%{http_code}' -X POST \
+    "https://api.telegram.org/bot${tg_bot_token}/sendMessage" \
     -d "chat_id=${tg_chat_id}" \
-    -d "text=${text}" >/dev/null 2>&1 || true
+    --data-urlencode "text=${text}" 2>&1) || {
+    log "TG: curl 调用失败（网络或 token 无效）"
+    return 1
+  }
+  http_code="$(printf '%s' "$resp" | tail -n1)"
+  local body; body="$(printf '%s' "$resp" | sed '$d')"
+  if [ "$http_code" = "200" ]; then
+    log "TG: 通知已发送 (chat_id=${tg_chat_id})"
+    return 0
+  fi
+  log "TG: 通知失败 HTTP=${http_code} body=${body}"
+  return 1
 }
+
+# 内部日志（写到 LOG_FILE）
+log(){ printf '%s %s\n' "$(date -Is)" "$*" >> "$LOG_FILE" 2>/dev/null || true; }
+
+# 手动测试 TG：直接传 --test-tg 参数即可触发一次
+if [ "${1:-}" = "--test-tg" ]; then
+  if [ "$tg_enabled" != "1" ] || [ -z "$tg_bot_token" ] || [ -z "$tg_chat_id" ]; then
+    echo "TG 未配置：tg_enabled=${tg_enabled:-0}, token=${tg_bot_token:+set}, chat_id=${tg_chat_id:-empty}" >&2
+    exit 2
+  fi
+  text="🧪 vnStat-quota-check TG 测试消息（$(date '+%F %T')）"
+  send_telegram "$text" && echo "TG 测试成功" || echo "TG 测试失败（看日志）"
+  exit $?
+fi
+
+# ---------- 入口 ----------
 
 record_state(){
   local level="$1"

@@ -194,6 +194,13 @@ QUOTA_TOKEN=${QUOTA_TOKEN}
 MAX_WEB_SIZE_MB=100
 EOF
 
+# 验证配置确实写入了（避免 quota-check.sh 在 conf 缺失时永远静默退出）
+if [ ! -s /etc/vnstat-web.conf ]; then
+  log "错误：写入 /etc/vnstat-web.conf 失败，quota-check 不会工作。请检查磁盘空间和权限后重装。"
+  exit 1
+fi
+chmod 600 /etc/vnstat-web.conf
+
 log "安装并启用 lighttpd /vnstat/ alias..."
 repair_lighttpd_main_conf
 if command -v lighty-enable-mod >/dev/null 2>&1; then
