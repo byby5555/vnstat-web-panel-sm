@@ -105,7 +105,9 @@ if [ "${1:-}" = "--test-tg" ]; then
     echo "TG 未配置：tg_enabled=${tg_enabled:-0}, token=${tg_bot_token:+set}, chat_id=${tg_chat_id:-empty}" >&2
     exit 2
   fi
-  text="🧪 vnStat-quota-check TG 测试消息（$(date '+%F %T')）"
+  text="🧪 *vnStat-quota-check TG 测试消息*
+
+$(vps_info)时间: $(date '+%F %T')"
   send_telegram "$text" && echo "TG 测试成功" || echo "TG 测试失败（看日志）"
   exit $?
 fi
@@ -117,10 +119,36 @@ record_state(){
   printf "level=%s\ndate=%s\n" "$level" "$today" > "$STATE_FILE" 2>/dev/null || true
 }
 
+# 构造机器标识块（用于 TG 通知里说明哪台机器）
+vps_info(){
+  local out=""
+  [ -n "${VPS_LABEL:-}" ]   && out+="机器: ${VPS_LABEL}\n"
+  [ -n "${VPS_COUNTRY:-}" ] && out+="地区: ${VPS_COUNTRY}"
+  if [ -n "${VPS_REGION:-}" ]; then
+    [ -n "$out" ] && out+=" / "
+    out+="${VPS_REGION}"
+  fi
+  [ -n "$out" ] && out+="\n"
+  if [ -n "${VPS_IP:-}" ]; then
+    out+="IP: ${VPS_IP}\n"
+  else
+    # 实时探测作为后备
+    local ip
+    ip="$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9]+\.' | head -n1)"
+    [ -n "$ip" ] && out+="IP: ${ip}\n"
+  fi
+  printf '%b' "$out"
+}
+
 if awk -v p="$pct" -v c="$shutdown_pct" 'BEGIN{exit !(p>=c)}'; then
   echo "$(date -Is) SHUTDOWN pct=$pct used_gb=$used_gb quota_gb=$quota_gb start_day=$month_start_day" >> "$LOG_FILE" 2>/dev/null || true
   if [ "$last_level" != "shutdown" ] || [ "$last_date" != "$today" ]; then
-    send_telegram "🚨 vnStat 流量超限自动关机：已用 ${used_gb}GB / ${quota_gb}GB（${pct}%），起算日 ${month_start_day} 号。"
+    info="$(vps_info)"
+    send_telegram "🚨 *vnStat 流量超限自动关机*
+
+${info}已用: ${used_gb}GB / ${quota_gb}GB（${pct}%）
+起算日: ${month_start_day} 号
+时间: $(date '+%F %T')"
     record_state "shutdown"
   fi
   if [ "$auto_shutdown" = "1" ]; then
@@ -132,7 +160,12 @@ fi
 if awk -v p="$pct" -v d="$danger_pct" 'BEGIN{exit !(p>=d)}'; then
   echo "$(date -Is) DANGER pct=$pct used_gb=$used_gb quota_gb=$quota_gb start_day=$month_start_day" >> "$LOG_FILE" 2>/dev/null || true
   if [ "$last_level" != "danger" ] || [ "$last_date" != "$today" ]; then
-    send_telegram "⚠️ vnStat 流量危险：已用 ${used_gb}GB / ${quota_gb}GB（${pct}%），起算日 ${month_start_day} 号。"
+    info="$(vps_info)"
+    send_telegram "⚠️ *vnStat 流量危险*
+
+${info}已用: ${used_gb}GB / ${quota_gb}GB（${pct}%）
+起算日: ${month_start_day} 号
+时间: $(date '+%F %T')"
     record_state "danger"
   fi
   exit 0
@@ -141,7 +174,12 @@ fi
 if awk -v p="$pct" -v a="$alert_pct" 'BEGIN{exit !(p>=a)}'; then
   echo "$(date -Is) ALERT pct=$pct used_gb=$used_gb quota_gb=$quota_gb start_day=$month_start_day" >> "$LOG_FILE" 2>/dev/null || true
   if [ "$last_level" != "alert" ] || [ "$last_date" != "$today" ]; then
-    send_telegram "🔔 vnStat 流量告警：已用 ${used_gb}GB / ${quota_gb}GB（${pct}%），起算日 ${month_start_day} 号。"
+    info="$(vps_info)"
+    send_telegram "🔔 *vnStat 流量告警*
+
+${info}已用: ${used_gb}GB / ${quota_gb}GB（${pct}%）
+起算日: ${month_start_day} 号
+时间: $(date '+%F %T')"
     record_state "alert"
   fi
   exit 0
